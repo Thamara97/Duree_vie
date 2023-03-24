@@ -1,0 +1,133 @@
+---
+title: 'TP4 : Estimation et prévision des processus SARIMA'
+author: "Thamara RENOIR"
+date: "2023-03-23"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Température moyenne mensuelle à Nottingham
+
+## 1.1. Exploration préliminaire
+
+### Question 1.
+
+**nottem** est une série temporelle contenant les températures moyennes entre 1920 et 1930 à Nottingham Castle en degrés Fahrenheit.
+
+```{r}
+data(nottem)
+plot.ts(nottem,xlab='temps',ylab='température')
+```
+
+Le graphique ci-dessus laisse supposer que la moyenne de la série est égale à 50, de même pour sa variance. Il n'y a pas de tendance mais il y a une saisonnalité d'ordre 12.
+
+Procédons à une décomposition additive la série avec la fonction **decompose**.
+
+```{r}
+fit <- decompose(nottem)
+par(mfrow = c(1, 2))
+plot(fit$trend)
+plot(fit$trend, ylim = c(30,65))
+```
+
+D'après le premier graphique, la tendance ne semble pas linéaire mais en choisissant la même échelle que celle de la série pour l'axe des ordonnées, on constate que malgré de légères fluctuations elle est globalement constante.
+
+
+```{r}
+plot(fit$seasonal)
+```
+
+Ce graphique ne laisse point de place au doute concernant la saisonnalité de la série, qui, de plus est d'ordre 12.
+
+```{r}
+plot(fit$random, ylim = c(-6,6))
+mean(fit$random, na.rm = TRUE)
+```
+
+Les fluctuations sont irrégulières, la série semble stationnaire avec une moyenne nulle et une variance qui semble constante.
+
+```{r}
+plot(fit$figure)
+mean(fit$figure)
+```
+
+La moyenne des coefficients saisonniers est presque nulle.
+L'allure du nuage de point est cohérente avec le cycle des températures au cours d'une année.
+
+```{r}
+monthplot(nottem)
+```
+
+Comme nous avons un effet saisonnier, les 12 chronogrammes mensuels sont différents. On observe un pic pendant la période estivale et une baisse considérable pendant la période hivernale.
+
+## 1.2 Modélisation par un processus stationnaire après différenciation
+
+On commence par diviser la série en deux sous séries, la première servira à la construction du modèle et la deuxième à la validation de ce dernier.
+
+```{r}
+nott_a = window(nottem, end=c(1936,12))
+nott_v = window(nottem, start=c(1937,1))
+```
+
+### Question 2.
+
+Représentons les autocorrélogrammes de la série des températures.
+
+```{r}
+par(mfrow = c(1,2))
+acf(ts(nott_a),type="correlation",lag.max=40,main="")
+pacf(ts(nott_a),lag.max=40,main="")
+```
+
+Ces auto-corrélogrammes ne sont pas conforme à l'hypothèse de stationnarité. S'ils l'étaient, les auto-corrélogrammes seraient tous les deux décroissants. 
+
+Après différentiation saisonnière de la série on obtient les auto-corrélogrammes suivant.
+
+```{r}
+acf(diff(ts(nott_a),12),type="correlation",lag.max=40,main="")
+pacf(diff(ts(nott_a),12),lag.max=40,main="")
+```
+
+Modèles candidats :
+- $\text{SARIMA}(1,0,1)(1,1,1)_{12}$
+- $\text{SARIMA}(1,0,1)(2,1,1)_{12}$
+
+## 1.3. Estimation des paramètres du modèle $\texte {SARIMA} (1,0,0)(2,1,0)_{12}$
+
+### Question 3.
+
+Estimons les paramètres du modèle $\texte {SARIMA} (1,0,0)(2,1,0)_{12}$ avec les fonction **arima** et **Arima**.
+
+```{r}
+library(forecast)
+fitm = arima(nott_a,order=c(1,0,0), seasonal=list(order=c(2,1,0), period=12))
+summary(fitm)
+
+fitm = Arima(nott_a,order=c(1,0,0), seasonal=list(order=c(2,1,0), period=12),include.drift=TRUE)
+summary(fitm)
+```
+
+Les coefficients estimés sont les mêmes avec les deux fonctions, à savoir $\phi_1 = 0.324$, $\Phi_1 = -0.8848$ et $\Phi_2 = -0.3040$ et la fonction **Arima** estime un drift $c = -0.005$.
+
+Le modèle estimé à pour équation $(1-B^{12}) X_t = -0.005 + \frac{1}{(1 - 0.324B)(1 + 0.8848 B^{12} + 0.3040 B^{24})}$.
+
+L'ajout du drift ne semble pas significative, puisqu'il est de l'ordre de $10^{-3}$, on peut utiliser les deux modèles estimés de manière équivalente. Les autres coefficients du modèle sont significativement non nuls.
+
+L'AIC du modèle estimé vaut $900.88$. Les critères d'erreurs (AIC, AICc et BIC) fournis dans le *summary* sont tous de l'ordre de $900$.
+
+### Question 4.
+
+Nous effectuons *a posteriori* des hypothèses sur le bruit blanc.
+
+On commence par effectuer un test du Portmanteau pour différents retards.
+
+```{r}
+Box.test(fitm$residuals,lag=c(5))
+Box.test(fitm$residuals,lag=c(10))
+Box.test(fitm$residuals,lag=c(15))
+Box.test(fitm$residuals,lag=c(20))
+```
+
