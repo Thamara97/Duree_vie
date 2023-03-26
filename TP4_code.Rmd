@@ -170,7 +170,7 @@ shapiro.test(fitm$residuals)
 
 Les quantiles des résidus sont plutôt bien alignés avec la droite d'équation $y = x$, ce qui laisse supposer que les résidus sont bien gaussiens.
 
-Comme la p-value du test de Shapiro est supérieure à $5\%$ alors on ne rejette pas l'hypothèse de normalité des résidus. Ce test ne contredit pas l'hypothèse de normalité. Et donc, l'estimation du modèle SARIMA obtenu par maximum de vraisemblance n'est pas ***********
+Comme la p-value du test de Shapiro est supérieure à $5\%$ alors on ne rejette pas l'hypothèse de normalité des résidus. Ce test ne contredit pas l'hypothèse de normalité. Et donc, l'estimation du modèle SARIMA obtenue par maximum de vraisemblance n'est pas remise en cause.
 
 ## 1.4. Estimation des paramètres d'autres modèles SARIMA candidats
 
