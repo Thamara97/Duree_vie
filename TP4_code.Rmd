@@ -1,6 +1,6 @@
 ---
 title: 'TP4 : Estimation et prévision des processus SARIMA'
-author: "Thamara RENOIR"
+author: "Thamara RENOIR & Maryam AKKOUH OUALKADI"
 date: "2023-03-23"
 output: pdf_document
 ---
@@ -22,7 +22,7 @@ data(nottem)
 plot.ts(nottem,xlab='temps',ylab='température')
 ```
 
-Le graphique ci-dessus laisse supposer que la moyenne de la série est égale à 50, de même pour sa variance. Il n'y a pas de tendance mais il y a une saisonnalité d'ordre 12.
+Le graphique ci-dessus laisse supposer que la moyenne de la série est égale à 50. La tendance semble être constante mais il y a une saisonnalité d'ordre 12.
 
 Procédons à une décomposition additive la série avec la fonction **decompose**.
 
@@ -61,15 +61,15 @@ L'allure du nuage de point est cohérente avec le cycle des températures au cou
 monthplot(nottem)
 ```
 
-Comme nous avons un effet saisonnier, les 12 chronogrammes mensuels sont différents. On observe un pic pendant la période estivale et une baisse considérable pendant la période hivernale.
+Comme nous avons un effet saisonnier, les 12 chronogrammes mensuels sont différents. On observe un pic des températures  pendant la période estivale et une baisse considérable pendant la période hivernale.
 
 ## 1.2 Modélisation par un processus stationnaire après différenciation
 
 On commence par diviser la série en deux sous séries, la première servira à la construction du modèle et la deuxième à la validation de ce dernier.
 
 ```{r}
-nott_a = window(nottem, end=c(1936,12))
-nott_v = window(nottem, start=c(1937,1))
+nott_a <-  window(nottem, end=c(1936,12))
+nott_v <- window(nottem, start=c(1937,1))
 ```
 
 ### Question 2.
@@ -78,35 +78,61 @@ Représentons les autocorrélogrammes de la série des températures.
 
 ```{r}
 par(mfrow = c(1,2))
-acf(ts(nott_a),type="correlation",lag.max=40,main="")
-pacf(ts(nott_a),lag.max=40,main="")
+acf(ts(nott_a), type = "correlation", lag.max = 40, xlab = "h",
+    ylab = expression(rho(h)), main = "Autocorrélogramme")
+pacf(ts(nott_a), lag.max = 40, xlab = "h", ylab = "r(h)",
+     main = "Autocorrélogramme partiel")
 ```
 
-Ces auto-corrélogrammes ne sont pas conforme à l'hypothèse de stationnarité. S'ils l'étaient, les auto-corrélogrammes seraient tous les deux décroissants. 
+L'autocorrélogramme n'est pas conforme à l'hypothèse de stationnarité. Il n'est pas décroissant et la périodicité du motif indique une saisonnalité, ce qui est contraire à un caractère stationnaire de la série. L'autocorrélogramme partiel ne contredit pas l'hypothèse de stationnarité, cependant on rejette l'hypothèse de stationnarité car les deux autocorrélogrammes doivent être décroissants.
 
-Après différentiation saisonnière de la série on obtient les auto-corrélogrammes suivant.
+Après différentiation saisonnière de la série on obtient les autocorrélogrammes suivants.
 
 ```{r}
-acf(diff(ts(nott_a),12),type="correlation",lag.max=40,main="")
-pacf(diff(ts(nott_a),12),lag.max=40,main="")
+par(mfrow = c(1,2))
+acf(diff(ts(nott_a),12), type = "correlation", lag.max = 40, xlab = "h",
+    ylab = expression(rho(h)), main = "Autocorrélogramme")
+pacf(diff(ts(nott_a),12), lag.max = 40, xlab = "h", ylab = "r(h)",
+     main = "Autocorrélogramme partiel")
 ```
 
-Modèles candidats :
-- $\text{SARIMA}(1,0,1)(1,1,1)_{12}$
-- $\text{SARIMA}(1,0,1)(2,1,1)_{12}$
+Les autocorrélogrammes de la série différenciés semblent décroissant, ils sont par conséquent conforment à l'hypothèse de stationnarité.
 
-## 1.3. Estimation des paramètres du modèle $\texte {SARIMA} (1,0,0)(2,1,0)_{12}$
+Établissons la liste des modèles candidats.
+
+On voit sur l'autocorrélogramme que pour $h = 1, 12, 24$ et potentiellement 10, 22, 29 et 34 également, $\rho(h) \neq 0$. A moins de devoir estimer plusieurs coefficients $\theta$ inutiles, c'est-à-dire des coefficients qui sont supposés nuls, on ne peut pas récupérer les termes $B^{10}, B^{22}, B^{29}$ et $B^{34}$.
+De même, l'autocorrélogramme partiel laisse supposer que pour $h = 1, 12, 13, 24$ et potentiellement 10 et 27 également, $r(h) \neq 0$. Comme précédemment, si l'on souhaite obtenir les termes  $B^{10}, B^{27}$ il faudrait estimer plusieurs coefficients $\phi$ censé être nuls.
+
+Nous avons donc les modèles candidats suivants :
+
+- $\text{SARIMA}(1,0,1)(1,1,1)_{12}$. Ce modèle fait apparaître un coefficient non nul pour $B^{13}$ dans la partie $MA$ mais le coefficient de $B^{24}$ est nul dans la partie $AR$.
+
+- $\text{SARIMA}(1,0,1)(1,1,2)_{12}$. Ce modèle fait apparaître un coefficient non nul pour $B^{13}$ et $B^{25}$ dans la partie $MA$ mais le coefficient de $B^{24}$ est nul dans la partie $AR$.
+
+- $\text{SARIMA}(1,0,1)(2,1,1)_{12}$. Ce modèle fait apparaître un coefficient non nul pour $B^{13}$ dans la partie $MA$.
+
+- $\text{SARIMA}(1,0,1)(2,1,2)_{12}$. Ce modèle fait apparaître un coefficient non nul pour $B^{13}$ et $B^{25}$ dans la partie $MA$.
+
+- $\text{SARIMA}(1,0,0)(2,1,1)_{12}$. Avec ce modèle, seul le coefficient de $B^{12}$ dans la partie $MA$ est non nul.
+
+- $\text{SARIMA}(1,0,0)(1,1,1)_{12}$. Avec ce modèle, seul le coefficient de $B^{12}$ dans la partie $MA$ est non nul.
+
+## 1.3. Estimation des paramètres du modèle $\text{SARIMA} (1,0,0)(2,1,0)_{12}$
 
 ### Question 3.
 
-Estimons les paramètres du modèle $\texte {SARIMA} (1,0,0)(2,1,0)_{12}$ avec les fonction **arima** et **Arima**.
+Estimons les paramètres du modèle $\text{SARIMA} (1,0,0)(2,1,0)_{12}$ avec les fonction **arima** et **Arima**.
 
 ```{r}
 library(forecast)
-fitm = arima(nott_a,order=c(1,0,0), seasonal=list(order=c(2,1,0), period=12))
+
+fitm <- arima(nott_a,order = c(1, 0, 0),
+              seasonal = list(order = c(2, 1, 0), period = 12))
 summary(fitm)
 
-fitm = Arima(nott_a,order=c(1,0,0), seasonal=list(order=c(2,1,0), period=12),include.drift=TRUE)
+fitm <- Arima(nott_a,order = c(1, 0, 0),
+              seasonal = list(order = c(2, 1, 0), period = 12),
+              include.drift = TRUE)
 summary(fitm)
 ```
 
@@ -114,20 +140,145 @@ Les coefficients estimés sont les mêmes avec les deux fonctions, à savoir $\p
 
 Le modèle estimé à pour équation $(1-B^{12}) X_t = -0.005 + \frac{1}{(1 - 0.324B)(1 + 0.8848 B^{12} + 0.3040 B^{24})}$.
 
-L'ajout du drift ne semble pas significative, puisqu'il est de l'ordre de $10^{-3}$, on peut utiliser les deux modèles estimés de manière équivalente. Les autres coefficients du modèle sont significativement non nuls.
+L'ajout du drift ne semble pas significatif, puisqu'il est de l'ordre de $10^{-3}$, on peut utiliser les deux modèles estimés de manière équivalente. Les écarts types des autres coefficients du modèle permettent d'affirmer qu'ils sont significativement non nuls.
 
-L'AIC du modèle estimé vaut $900.88$. Les critères d'erreurs (AIC, AICc et BIC) fournis dans le *summary* sont tous de l'ordre de $900$.
+L'AIC du modèle estimé vaut $900.88$. Les critères d'information AIC, AICc et BICf fournis dans le *summary* sont tous proches de $900$.
+
+La moyenne des erreurs (ME) est proche de 0, l'erreur quadratique moyenne (RMSE) est assez faible pour des valeurs de la série comprises entre 30 et 65. Le modèle semble assez bien estimé.
 
 ### Question 4.
 
-Nous effectuons *a posteriori* des hypothèses sur le bruit blanc.
-
-On commence par effectuer un test du Portmanteau pour différents retards.
+Nous effectuons *a posteriori* des hypothèses sur le bruit. Nous testons si les résidus estimés sont bien cohérent avec l'hypothèse de bruit blanc du modèle. Pour cela nous effectuons des tests du Portemanteau pour différents retards.
 
 ```{r}
-Box.test(fitm$residuals,lag=c(5))
-Box.test(fitm$residuals,lag=c(10))
-Box.test(fitm$residuals,lag=c(15))
-Box.test(fitm$residuals,lag=c(20))
+Box.test(fitm$residuals, lag = c(5))
+Box.test(fitm$residuals, lag = c(10))
+Box.test(fitm$residuals, lag = c(15))
+Box.test(fitm$residuals, lag = c(20))
 ```
 
+Quelque soit la valeur choisie pour l'option *lag*, la p-value du test est supérieure à $5\%$, donc on ne rejette pas l'hypothèse de bruit blanc jusqu'à l'ordre 5 ou 10 ou 15 ou 20.
+
+Vérifions graphiquement puis avec un test de normalité si les résidus sont gaussiens.
+
+```{r}
+qqnorm(fitm$residuals/sqrt(fitm$sigma2))
+abline(a = 0, b = 1, col = "red")
+
+shapiro.test(fitm$residuals)
+```
+
+Les quantiles des résidus sont plutôt bien alignés avec la droite d'équation $y = x$, ce qui laisse supposer que les résidus sont bien gaussiens.
+
+Comme la p-value du test de Shapiro est supérieure à $5\%$ alors on ne rejette pas l'hypothèse de normalité des résidus. Ce test ne contredit pas l'hypothèse de normalité. Et donc, l'estimation du modèle SARIMA obtenu par maximum de vraisemblance n'est pas ***********
+
+## 1.4. Estimation des paramètres d'autres modèles SARIMA candidats
+
+### Question 5.
+
+Estimons les paramètres d'un modèle $SARIMA(1,0,0)(2,1,1)_{12}$.
+
+```{r}
+fitm2 <- Arima(nott_a,order = c(1, 0, 0),
+              seasonal = list(order = c(2, 1, 1), period = 12),
+              include.drift = TRUE)
+summary(fitm2)
+```
+
+Les coefficients estimés par la fonction **Arima** sont $\phi_1 = 0.3083$, $\Phi_1 = -0.2186$, $\Phi_2 = 0.1516$ et $\Theta_1 = -0.8085$ avec un drift $c = 0.0032$.
+
+Le modèle estimé à pour équation $(1-B^{12}) X_t = 0.0032 + \frac{1 - 0.8085 B^{12}}{(1 - 0.3083 B)(1 + 0.2186 B^{12} - 0.1516 B^{24})}$.
+
+L'ajout du drift ne semble pas significatif, puisqu'il est de l'ordre de $10^{-3}$. Les autres coefficients du modèle sont significativement non nuls.
+
+L'AIC de ce nouveau modèle (886.82) est inférieur à celui du $SARIMA(1,0,0)(2,1,0)_{12}$.
+
+La valeur du RMSE du second modèle est également inférieure à celle du premier, de même pour l'écart type du drift estimé. En revanche, l'écart-type des $\phi_1$, $\Phi_1$ et $Phi_2$ estimés sont supérieurs dans le second modèle. L'intervalle de confiance de ces coefficients est plus grand.
+
+On aura donc tendance à retenir plutôt le second modèle.
+
+### Question 6.
+
+Nous sélection automatiquement un modèle SARIMA avec la fonction **auto.arima**.
+
+```{r}
+fit_auto <- auto.arima(nott_a, d = 0, D = 1, max.p = 2, max.q = 2, seasonal = TRUE)
+summary(fit_auto)
+```
+
+Le modèle obtenu automatiquement est un $SARIMA(1, 0, 2)(1, 1, 2)_{12}$.
+
+L'AIC de ce modèle est inférieur à celui du $SARIMA(1,0,0)(2,1,0)_{12}$ de même pour le RMSE. En revanche les écart-types des coefficients estimés $\theta_1$ et $\Theta_1$ sont supérieurs à ceux du premier modèle.
+
+Ce nouveau modèle est meilleur en terme d'AIC et d'erreur quadratique moyenne. De plus, l'intervalle de confiance des coefficients estimés dans ce nouveau modèle est plus grand.
+
+Ce modèle est meilleur que le premier mais il est légèrement moins bon que le second.
+
+Analysons les résidus.
+
+```{r}
+par(mfrow = c(1, 2))
+acf(fit_auto$residuals)
+pacf(fit_auto$residuals)
+```
+
+L'autocorrélogramme et l'autocorrélogramme partiel de ces résidus sont cohérents avec une hypothèse de bruit blanc, seule l'autocorrélation d'ordre 0 est non nulle et toutes les autocorrélations partielles sont nulles.
+
+## 1.5. Comparaison des modèles en terme de prévision
+
+Nous allons comparer les différents modèles en terme de prévision avec la sous série **nott_v**.
+
+### Question 7.
+
+On prédit les valeurs de la série pour les 36 valeurs futures (de 1937 à 1939).
+
+```{r}
+pred.sarima <- forecast(fitm, h = 36)
+```
+
+Représentons les prévision graphiquement.
+
+1. Méthode 1
+
+```{r}
+plot(pred.sarima, main = "Prévision de 1937 à 1939")
+points(nott_v, col = "darkgreen", lwd = 2, type = "l")
+```
+
+2. Méthode 2 : à la main
+
+```{r}
+tnupp <- ts(pred.sarima$upper[,1], start = c(1937, 1), frequency = 12)
+tnlow <- ts(pred.sarima$lower[,1], start = c(1937, 1), frequency = 12)
+
+plot(window(pred.sarima$mean, start = c(1937, 1)), col = "darkblue", lwd = 2,
+     main = "Prévision de 1937 à 1939", xlab = "Température", ylab = "Temps")
+points(nott_v, col = "darkgreen", lwd = 2, type = "l")
+points(tnupp, col = "darkblue", lty = 2, type = "l")
+points(tnlow, col = "darkblue", lty = 2, type = "l")
+```
+
+La variable $\text{pred.sarima\$upper}$ est un vecteur contenant la borne supérieure de l'intervalle de confiance à $80\%$ des prévisions aux différents temps $t$ convertit en série temporelle. De même $\text{pred.sarima\$upper}$ contient la borne inférieure de l'intervalle de confiance à $80\%$ des prévisions. Enfin, $\text{pred.sarima\$mean}$ contient la moyenne entre la borne supérieure et la borne inférieure de l'intervalle de confiance.
+
+Plus l'horizon de la prévision augmente, plus l'amplitude de l'intervalle de confiance semble augmenter. En effet, plus l'horizon de prévision est lointain, moins bonne sera la prévision. 
+
+Ci-dessous une représentation graphique du phénomène :
+
+```{r}
+plot(tnupp - tnlow, type = "o")
+```
+
+### Question 8.
+
+```{r}
+h <- 36
+
+EQM1 <- (1/h)*(sum((nott_v - forecast(fitm, h)$mean)^2))
+EQM2 <- (1/h)*(sum((nott_v - forecast(fitm2, h)$mean)^2))
+EQM3 <- (1/h)*(sum((nott_v - forecast(fit_auto, h)$mean)^2))
+
+EQM1; EQM2; EQM3
+```
+Le modèle qui a la plus petite erreur de prédiction est le deuxième modèle, $SARIMA(1,0,0)(2,1,1)_{12}$. Ce constat rejoint notre conclusion de la question 5.
+
+En conclusion, le meilleur en terme d'information, d'erreur quadratique et de prévision est la second modèle.
