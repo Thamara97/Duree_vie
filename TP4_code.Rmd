@@ -138,17 +138,18 @@ summary(fitm)
 
 Les coefficients estimés sont les mêmes avec les deux fonctions, à savoir $\phi_1 = 0.324$, $\Phi_1 = -0.8848$ et $\Phi_2 = -0.3040$ et la fonction **Arima** estime un drift $c = -0.005$.
 
-Le modèle estimé à pour équation $(1-B^{12}) X_t = -0.005 + \frac{1}{(1 - 0.324B)(1 + 0.8848 B^{12} + 0.3040 B^{24})}$.
+Le modèle estimé à pour équation : 
+$$(1-B^{12}) X_t = -0.005 + \frac{1}{(1 - 0.324B)(1 + 0.8848 B^{12} + 0.3040 B^{24})}.$$
 
 L'ajout du drift ne semble pas significatif, puisqu'il est de l'ordre de $10^{-3}$, on peut utiliser les deux modèles estimés de manière équivalente. Les écarts types des autres coefficients du modèle permettent d'affirmer qu'ils sont significativement non nuls.
 
-L'AIC du modèle estimé vaut $900.88$. Les critères d'information AIC, AICc et BICf fournis dans le *summary* sont tous proches de $900$.
+L'AIC du modèle estimé vaut $900.88$. Les critères d'information AIC, AICc et BIC fournis dans le *summary* sont tous proches de $900$.
 
 La moyenne des erreurs (ME) est proche de 0, l'erreur quadratique moyenne (RMSE) est assez faible pour des valeurs de la série comprises entre 30 et 65. Le modèle semble assez bien estimé.
 
 ### Question 4.
 
-Nous effectuons *a posteriori* des hypothèses sur le bruit. Nous testons si les résidus estimés sont bien cohérent avec l'hypothèse de bruit blanc du modèle. Pour cela nous effectuons des tests du Portemanteau pour différents retards.
+Nous effectuons *a posteriori* des hypothèses sur le bruit. Nous testons si les résidus estimés sont bien cohérents avec l'hypothèse de bruit blanc du modèle. Pour cela nous effectuons des tests du Portemanteau pour différents retards.
 
 ```{r}
 Box.test(fitm$residuals, lag = c(5))
