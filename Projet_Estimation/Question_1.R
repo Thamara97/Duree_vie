@@ -44,3 +44,100 @@ for (theta in seq(0, 5, by = 0.5)) {
 plot(seq(0, 5, by = 0.5), ps, type = "o", col = "blue", xlab = "", ylab = "Puissance")
 points(seq(0, 5, by = 0.5), pw, type = "o", col = "red")
 points(seq(0, 5, by = 0.5), pks, type = "o", col = "green")
+
+
+#QUESTION 2 
+
+library(wmwpow)
+library(smoothmest)
+
+# déterminer la valeur de theta*
+
+p = 0.7    # p = f(theta)
+N = 100000
+C = c()
+
+for (theta in seq(0, 5, by = 0.5)) {
+  c = 0
+    for(i in (1:100)){
+       X <- rdoublex(N, mu = 0, lambda = 1) # échantillon X
+       Y <- rdoublex(N, mu = theta, lambda = 1) # échantillon Y
+       c = c(c,sum(X<=Y)/N)
+    }
+  C = c(C,mean(c))
+}
+
+
+# maintenant on sait que theta est entre 0.5 et 1, on refait alors le même calcul pour theta allant de 0 à 1
+
+C = c()
+
+for (theta in seq(0, 1, by = 0.1)) {
+  c = 0
+    for(i in (1:100)){
+       X <- rdoublex(N, mu = 0, lambda = 1) # échantillon X
+       Y <- rdoublex(N, mu = theta, lambda = 1) # échantillon Y
+       c = c(c,sum(X<=Y)/N)
+    }
+  C = c(C,mean(c))
+}
+
+C
+
+
+#maintenant on sait que theta est entre 0.9 et 1
+
+C = c()
+
+for (theta in seq(0.9, 1, by = 0.01)) {
+  c = 0
+    for(i in (1:100)){
+       X <- rdoublex(N, mu = 0, lambda = 1) # échantillon X
+       Y <- rdoublex(N, mu = theta, lambda = 1) # échantillon Y
+       c = c(c,sum(X<=Y)/N)
+    }
+  C = c(C,mean(c))
+}
+
+C
+
+# on sait maintenant que theta est entre 0.90 et 0.91
+C = c()
+
+for (theta in seq(0.9, 0.91, by = 0.001)) {
+  c = 0
+    for(i in (1:100)){
+       X <- rdoublex(N, mu = 0, lambda = 1) # échantillon X
+       Y <- rdoublex(N, mu = theta, lambda = 1) # échantillon Y
+       c = c(c,sum(X<=Y)/N)
+    }
+  C = c(C,mean(c))
+}
+
+C
+
+# on approxime alors la valeur de theta à 0.91
+
+theta_e = 0.91
+
+# tests pour trouver n = m
+
+pow = c()
+for(n in (1:10)){
+  powpow = wmwpowp(n,n,"doublex", p= 0.7, sides = "less", alpha = 0.05)
+  pow = c(pow, powpow$empirical_power)
+}
+
+
+# on sait que n> 10
+
+pow = c()
+for(n in (11:20)){
+  powpow = wmwpowp(n,n,"doublex", p= 0.7, sides = "less", alpha = 0.05)
+  pow = c(pow, powpow$empirical_power)
+}
+
+# d'après nos tests on a n = 19
+
+n = 19
+
