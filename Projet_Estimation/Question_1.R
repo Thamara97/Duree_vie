@@ -54,7 +54,7 @@ library(smoothmest)
 # déterminer la valeur de theta*
 
 p = 0.7    # p = f(theta)
-N = 100000
+N = 10000
 C = c()
 
 for (theta in seq(0, 5, by = 0.5)) {
@@ -67,6 +67,8 @@ for (theta in seq(0, 5, by = 0.5)) {
   C = c(C,mean(c))
 }
 
+plot(seq(0, 5, by = 0.5), C, type = "o")
+abline(h = p)
 
 # maintenant on sait que theta est entre 0.5 et 1, on refait alors le même calcul pour theta allant de 0 à 1
 
@@ -84,6 +86,8 @@ for (theta in seq(0, 1, by = 0.1)) {
 
 C
 
+plot(seq(0, 5, by = 0.5), C, type = "o")
+abline(h = p)
 
 #maintenant on sait que theta est entre 0.9 et 1
 
@@ -101,6 +105,9 @@ for (theta in seq(0.9, 1, by = 0.01)) {
 
 C
 
+plot(seq(0, 5, by = 0.5), C, type = "o")
+abline(h = p)
+
 # on sait maintenant que theta est entre 0.90 et 0.91
 C = c()
 
@@ -116,6 +123,9 @@ for (theta in seq(0.9, 0.91, by = 0.001)) {
 
 C
 
+plot(seq(0, 5, by = 0.5), C, type = "o")
+abline(h = p)
+
 # on approxime alors la valeur de theta à 0.91
 
 theta_e = 0.91
@@ -128,6 +138,8 @@ for(n in (1:10)){
   pow = c(pow, powpow$empirical_power)
 }
 
+plot(1:10, pow, type = "o")
+abline(h = 0.8)
 
 # on sait que n> 10
 
@@ -137,7 +149,9 @@ for(n in (11:20)){
   pow = c(pow, powpow$empirical_power)
 }
 
+plot(11:20, pow, type = "o")
+abline(h = 0.8)
+
 # d'après nos tests on a n = 19
 
 n = 19
-
