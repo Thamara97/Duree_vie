@@ -152,6 +152,14 @@ for(n in (11:20)){
 plot(11:20, pow, type = "o")
 abline(h = 0.8)
 
-# d'après nos tests on a n = 19
+# d'après nos tests n > 20
 
-n = 19
+pow = c()
+for(n in (21:30)){
+  powpow = wmwpowp(n,n,"doublex", p= 0.7, sides = "less", alpha = 0.05)
+  pow = c(pow, powpow$empirical_power)
+}
+
+# on a alors n = 25
+
+n = 25
