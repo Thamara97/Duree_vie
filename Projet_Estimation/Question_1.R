@@ -1,28 +1,40 @@
 library(smoothmest)
 
+# Taille des échantillions
 n <- 8 ; m <- 13
 
+# Vecteurs des puissances empirique
 ps <- c() ; pw <- c() ; pks <- c()
 
+# Test numéro j
 j <- 0
 
-# theta
-for (theta in seq(0, 5, by = 0.5)) {
+for (theta in seq(0, 4, by = 0.25)) {
   
   j <- j + 1
  
-  # nbr p-value < 0.05
+  # Nombre de p-value < 0.05
   nb_ps <- 0 ; nb_pw <- 0 ; nb_pks <- 0
+  
+  # Nombre de tests
+  u <- 0
 
   for (i in 1:10000) {
     
-    # Echantillon 
-    X <- rdoublex(n, mu = 0, lambda = 1) # échantillon X
-    Y <- rdoublex(m, mu = theta, lambda = 1) # échantillon Y
+    # Echantillons
+    X <- rdoublex(n, mu = 0, lambda = 1)
+    Y <- rdoublex(m, mu = theta, lambda = 1)
       
+    # Normalité des données
     if (shapiro.test(X)$p.value > 0.05 | shapiro.test(Y)$p.value > 0.05) {
+      
       # Test de Student
-      Stud_test <- t.test(X, Y, alternative = "less")
+      if (bartlett.test(c(X,Y)~c(rep(1,n), rep(2,m)))$p.value > 0.05) {
+        Stud_test <- t.test(X, Y, alternative = "less", var.equal = TRUE)
+      } else {
+          Stud_test <- t.test(X, Y, alternative = "less")
+          } 
+      
       if (Stud_test$p.value < 0.05) {nb_ps <- nb_ps + 1} 
         
       # Test de Wilcoxon
@@ -32,18 +44,20 @@ for (theta in seq(0, 5, by = 0.5)) {
       # Test de Kolmogorov-Smirnov
       KS_test <- ks.test(X, Y, alternative = "two.sided")
       if (KS_test$p.value < 0.05) {nb_pks <- nb_pks + 1}
+      
+      u <- u + 1
     }
     
   }
   
-  ps[j] <- nb_ps/10000 # 
-  pw[j] <- nb_pw/10000
-  pks[j] <- nb_pks/10000
+  ps[j] <- nb_ps/u
+  pw[j] <- nb_pw/u
+  pks[j] <- nb_pks/u
 }
 
-plot(seq(0, 5, by = 0.5), ps, type = "o", col = "blue", xlab = "", ylab = "Puissance")
-points(seq(0, 5, by = 0.5), pw, type = "o", col = "red")
-points(seq(0, 5, by = 0.5), pks, type = "o", col = "green")
+plot(seq(0, 4, by = 0.25), ps, type = "o", col = "blue", xlab = expression(theta), ylab = "Puissance")
+points(seq(0, 4, by = 0.25), pw, type = "o", col = "red")
+points(seq(0, 4, by = 0.25), pks, type = "o", col = "green")
 
 
 #QUESTION 2 
