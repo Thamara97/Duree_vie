@@ -62,7 +62,6 @@ points(seq(0, 4, by = 0.25), pks, type = "o", col = "green")
 
 #QUESTION 2 
 
-library(wmwpow)
 library(smoothmest)
 
 # déterminer la valeur de theta*
@@ -146,6 +145,10 @@ theta_e = 0.91
 
 # tests pour trouver n = m
 
+# version 1
+
+library(wmwpow)
+
 pow = c()
 for(n in (1:10)){
   powpow = wmwpowp(n,n,"doublex", p= 0.7, sides = "less", alpha = 0.05)
@@ -177,6 +180,21 @@ for(n in (21:30)){
 # on a alors n = 25
 
 n = 25
+
+# version 2
+
+library(wmwpow)
+
+n <- 1
+powpow <- wmwpowp(n, n, "doublex", p = 0.7, sides = "less", alpha = 0.05)
+pow <- c(powpow$empirical_power)
+i <- 1
+while (pow[i] < 0.8) {
+  n <- n + 1
+  powpow <- wmwpowp(n, n, "doublex", p = 0.7, sides = "less", alpha = 0.05)
+  pow <- c(pow, powpow$empirical_power)
+  i <- i + 1
+}
 
 # QUESTION 3
 
