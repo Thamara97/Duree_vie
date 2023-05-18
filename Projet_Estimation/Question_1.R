@@ -100,7 +100,7 @@ for (theta in seq(0, 1, by = 0.1)) {
 
 C
 
-plot(seq(0, 5, by = 0.5), C, type = "o")
+plot(seq(0, 1, by = 0.1), C, type = "o")
 abline(h = p)
 
 #maintenant on sait que theta est entre 0.9 et 1
@@ -119,7 +119,7 @@ for (theta in seq(0.9, 1, by = 0.01)) {
 
 C
 
-plot(seq(0, 5, by = 0.5), C, type = "o")
+plot(seq(0.9, 1, by = 0.01), C, type = "o")
 abline(h = p)
 
 # on sait maintenant que theta est entre 0.90 et 0.91
@@ -137,7 +137,7 @@ for (theta in seq(0.9, 0.91, by = 0.001)) {
 
 C
 
-plot(seq(0, 5, by = 0.5), C, type = "o")
+plot(seq(0.9, 0.91, by = 0.001), C, type = "o")
 abline(h = p)
 
 # on approxime alors la valeur de theta à 0.91
