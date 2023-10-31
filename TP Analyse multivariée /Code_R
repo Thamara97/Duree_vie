@@ -57,4 +57,22 @@ X <- cbind(X, geology, EVI)
 
 # a) ACP globale
 
-ACP = PCA(X)
+ACP = PCA(X, ncp = 8)
+# Factoshiny(ACP)
+
+#Standardisation
+variance <- function(x){sum((x-mean(x))^2)/length(x)}
+standard <- function(x){(x-mean(x))/(sqrt(variance(x)))}
+
+X <- apply(X,2,standard)
+
+comp <- as.matrix(X) %*% ACP$svd$V
+
+# On pourra retenir les 8 premières composantes
+
+# b) Modélisation de la densité
+
+model1 <- lm(Y ~ comp)
+summary(model1)
+
+# On enlève les composantes 7 et 8
