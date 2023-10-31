@@ -1,0 +1,60 @@
+################ Importation des packages ################
+
+library(ade4)
+library(pls)
+library(ClustOfVar)
+library(glmnet)
+library(Factoshiny)
+
+################ Importation des données ################
+
+genus <- read.csv("Datagenus.csv", sep = "\t", header = TRUE, dec = ",")
+colnames(genus)
+
+# Suppression de la variable "forest"
+genus$forest <- NULL
+colnames(genus)
+
+############################ 1. Calculs de variables ###########################
+
+# a) Calcul de la variable dépendante Y
+
+Y <- rowSums(genus[,2:28])/genus$surface
+
+# b) Calcul du tableau des variables explicatives #######
+
+# Tableau d'indicatrices
+geology <- acm.disjonctif(as.data.frame(genus$geology))
+noms <- paste0("geology_", c(1,2,3,5,6))
+colnames(geology) <- noms
+
+# Tableau des variables quantitatives
+geo_quant <- genus[c("lat", "lon", "altitude","pluvio_yr")]
+for (i in 1:12) {
+  geo_quant <- cbind(geo_quant, genus[paste0("pluvio_", i)])
+}
+
+# Tableau des variables EVI
+EVI <- paste0("evi_", 1:23)
+EVI <- genus[EVI]
+
+# Tableau des variables explicatives 
+X <- geo_quant
+noms <- c()
+for (i in colnames(geology)) {
+  for (j in colnames(geo_quant)) {
+    X <- cbind(X, geo_quant[j] * geology[i])
+    noms <- cbind(noms, paste0(i , ".", j))
+  }
+}
+colnames(X)[17:96] <- noms
+X <- cbind(X, geology, EVI)
+
+# Multidirectionnalités :
+# variables quantitatives avec les variables d'interactions
+
+############## 2. Première régression sur composantes principales ##############
+
+# a) ACP globale
+
+ACP = PCA(X)
