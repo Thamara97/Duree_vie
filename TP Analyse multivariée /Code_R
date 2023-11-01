@@ -50,7 +50,7 @@ for (i in colnames(geology)) {
 colnames(X)[17:96] <- noms
 X <- cbind(X, geology, EVI)
 
-# Multidirectionnalités :
+# Multicolinéarité :
 # variables quantitatives avec les variables d'interactions
 
 ############## 2. Première régression sur composantes principales ##############
@@ -76,3 +76,122 @@ model1 <- lm(Y ~ comp)
 summary(model1)
 
 # On enlève les composantes 7 et 8
+
+model1 <- lm(Y ~ comp[, -c(7, 8)])
+summary(model1)
+
+# R² = 0.2105
+
+plot(Y, model1$fitted.values)
+abline(a = 0, b = 1)
+
+# Modèle mauvais
+
+# c) Coefficients des variables originelles
+
+# Y_hat = C*beta (avec C les componsantes)
+# Or C = X*V
+# Donc Y_hat = X*V*beta => V*beta sont les coefficients des variables de X
+
+coeff <- ACP$svd$V[, 1:6] %*% model1$coefficients[-1]
+rownames(coeff) <- colnames(X)
+coeff
+
+# contrib_total <- rowSums(ACP$var$contrib[, 1:6])
+# 
+# contrib <- ACP$var$contrib[, 1:6]
+# 
+# coeff <- matrix(NA, nrow = 124, ncol = 6)
+# for (i in 1:124){
+#   coeff[i, ] <- contrib[i, ] * model1$coefficients[-1] / contrib_total[i]
+# }
+# 
+# rownames(coeff) <- colnames(contrib)
+
+# d) Correction log
+
+zero <- which(Y == 0)
+
+model1_bis <- lm(log(Y[-zero]) ~ comp[-zero,])
+summary(model1_bis)
+
+# On enlève la composante 7
+
+model1_bis <- lm(log(Y[-zero]) ~ comp[-zero, -7])
+summary(model1_bis)
+
+# R² = 0.2673
+
+plot(log(Y[-zero]), model1_bis$fitted.values)
+abline(a = 0, b = 1)
+
+coeff_bis <- ACP$svd$V[, -7] %*% model1_bis$coefficients[-1]
+rownames(coeff_bis) <- colnames(X)
+coeff_bis
+
+############## 3. Seconde régression sur composantes principales ###############
+
+geo <- X[, 1:101]
+
+# ACP
+ACP_geo <- PCA(geo)
+ACP_evi <- PCA(EVI)
+
+ACP_geo$eig # On garde les 6 premières composantes
+ACP_geo <- PCA(geo, ncp = 6)
+
+ACP_evi$eig # On garde les 3 premières composantes
+ACP_evi <- PCA(EVI, ncp = 3)
+
+# Réunion des composantes
+comp_union <- cbind(as.matrix(geo) %*% ACP_geo$svd$V,
+                    as.matrix(EVI) %*% ACP_evi$svd$V)
+colnames(comp_union) <- paste0("geo_dim", 1:9)
+colnames(comp_union)[7:9] <- paste0("evi_dim", 1:3)
+
+# Modélisation
+model2 <- lm(Y ~ comp_union)
+summary(model2)
+
+# On enlève les composantes 4, 6, 7 et 9 de l'ensemble
+
+model2 <- lm(Y ~ comp_union[, -c(4, 6, 7, 9)])
+summary(model2)
+
+# R² = 0.2035 (moins bon que le R² du modèle 1)
+
+plot(Y, model2$fitted.values)
+abline(a = 0, b = 1)
+
+# Le nuage de points n'est toujours pas très proche de la droite,
+# les données ne sont pas très bien estimées
+
+# Coefficients des variables originelles
+
+# Ici Y_hat = [Comp_geo, Comp_evi] * beta
+# Or Com_geo = Geo * V_geo et Comp_evi = EVI * V_evi
+# Donc Y_hat = [Geo * V_geo * beta_geo, EVI * V_evi * beta_evi]
+
+coeff_u <- rbind(ACP_geo$svd$V[, -c(4, 6)] %*% model2$coefficients[-c(1, 6)],
+                 ACP_evi$svd$V[, 2] %*% as.matrix(model2$coefficients[6]))
+rownames(coeff_u) <- colnames(X)
+coeff_u
+
+# Correction log
+
+model2_bis <- lm(log(Y[-zero]) ~ comp_union[-zero,])
+summary(model2_bis)
+
+# On enlève la composante 1, 3 et 6 de Geo et 1 et 2 et 3 de EVI
+
+model2_bis <- lm(log(Y[-zero]) ~ comp[-zero, -c(1,3,6, 7, 8, 9)])
+summary(model2_bis)
+
+# R² = 0.07934
+
+plot(log(Y[-zero]), model2_bis$fitted.values)
+abline(a = 0, b = 1)
+
+coeff_u_bis <- ACP$svd$V[, c(2, 4, 5)] %*% model2_bis$coefficients[-1]
+rownames(coeff_u_bis) <- colnames(X)
+coeff_u_bis
