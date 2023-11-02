@@ -195,3 +195,60 @@ abline(a = 0, b = 1)
 coeff_u_bis <- ACP$svd$V[, c(2, 4, 5)] %*% model2_bis$coefficients[-1]
 rownames(coeff_u_bis) <- colnames(X)
 coeff_u_bis
+
+########################## 5. Régressions pénalisées ###########################
+
+# a) Régression Ridge
+
+model4 <- glmnet(X, Y, alpha = 0, family = "gaussian")
+model4
+
+# Meilleur R² = 0,3464
+
+model4$beta[,100]
+
+# # Représentation graphique de la valeur des coefficients en fonction de lambda
+# plot_glmnet(model4, label = 10)
+# 
+# 
+# # On fixe lambda par validation croisée
+# model4_bis <- train(X, Y, method = "glmnet", metric = "RMSE",
+#         trControl = trainControl(method = "repeatedcv", number = 5,
+#                                  repeats = 50),
+#         tuneGrid = data.frame(alpha = 0, lambda = model4$lambda))
+# 
+# # Valeur optimale de lambda
+# lambda_opt_ridge <- as.numeric(model4_bis$bestTune[2])
+# model4_bis$results[model4_bis$results[, 2] == lambda_opt_ridge, ]
+# 
+# model4_ter <- glmnet(X, Y, alha = 0, lambda = lambda_opt_ridge, family = "gaussian")
+# model4_ter$beta
+# 
+# plot_glmnet(model4, label = 10, s = lambda_opt_ridge)
+
+# b) Régression Lasso
+
+model5 <- glmnet(X, Y, alpha = 1, family = "gaussian")
+model5
+
+# Meilleur R² = 0,4672
+
+which(model5$beta[, 100] == 0)
+
+# # Représentation graphique de la valeur des coefficients en fonction de lambda
+# plot_glmnet(model5, label = 10)
+# 
+# # On fixe lambda par validation croisée
+# model5_bis <- train(X, Y, method = "glmnet", metric = "RMSE",
+#                     trControl = trainControl(method = "repeatedcv", number = 5,
+#                                              repeats = 10),
+#                     tuneGrid = data.frame(alpha = 1, lambda = model5$lambda))
+# 
+# # Valeur optimale de lambda
+# lambda_opt_lasso <- as.numeric(model5_bis$bestTune[2])
+# model5_bis$results[model5_bis$results[, 2] == lambda_opt_lasso, ]
+# 
+# model5_ter <- glmnet(X, Y, alha = 0, lambda = lambda_opt_lasso)
+# model5_ter$beta
+# 
+# plot_glmnet(model5, label = 10, s = lambda_opt_lasso)
