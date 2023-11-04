@@ -207,6 +207,10 @@ model4
 
 model4$beta[,100]
 
+plot(Y, model4$a0[1] + as.matrix(X) %*% model4$beta[,100],
+     ylab = "Y estimé", main = "Y estimé en fonction de Y")
+abline(a = 0, b = 1, col = "red")
+
 # # Représentation graphique de la valeur des coefficients en fonction de lambda
 # plot_glmnet(model4, label = 10)
 # 
@@ -233,7 +237,11 @@ model5
 
 # Meilleur R² = 0,4672
 
-which(model5$beta[, 100] == 0)
+wmodel5$beta[, 100]
+
+plot(Y, model5$a0[1] + as.matrix(X) %*% model5$beta[,100],
+     ylab = "Y estimé", main = "Y estimé en fonction de Y")
+abline(a = 0, b = 1, col = "red")
 
 # # Représentation graphique de la valeur des coefficients en fonction de lambda
 # plot_glmnet(model5, label = 10)
@@ -252,3 +260,26 @@ which(model5$beta[, 100] == 0)
 # model5_ter$beta
 # 
 # plot_glmnet(model5, label = 10, s = lambda_opt_lasso)
+
+########################## 6. Synthèse & conclusions ###########################
+
+Coeffs <- cbind(coeff, coeff_u,
+                "Ridge" = model4$beta[,100],
+                "LASSO" = model5$beta[,100])
+
+R2_1 <- 0.2105
+R2_2 <- 0.2035
+R2_ridge <- model4$dev.ratio[100]
+R2_lasso <- model5$dev.ratio[100]
+
+R2 <- cbind(R2_1, R2_2, R2_ridge, R2_lasso)
+
+MSE_1 <- mean((Y - model1$fitted.values)^2)
+MSE_2 <- mean((Y - model2$fitted.values)^2)
+MSE_ridge <- mean((Y - (model4$a0[100] + as.matrix(X) %*% model4$beta[,100]))^2)
+MSE_lasso <- mean((Y - (model5$a0[100] + as.matrix(X) %*% model5$beta[,100]))^2)
+
+MSE <- cbind(MSE_1, MSE_2, MSE_ridge, MSE_lasso)
+
+resum <- rbind(Coeffs, R2, MSE)
+rownames(resum)[c(125, 126)] <- c(expression(R^2), "MSE")
