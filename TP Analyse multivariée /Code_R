@@ -283,3 +283,57 @@ MSE <- cbind(MSE_1, MSE_2, MSE_ridge, MSE_lasso)
 
 resum <- rbind(Coeffs, R2, MSE)
 rownames(resum)[c(125, 126)] <- c(expression(R^2), "MSE")
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### fin code ####
+
+
+####### Regression PLS#########
+library(corrplot)
+model_pls <-plsr(Y~., data = data.frame("Y" = Y,X), validation = "CV")
+which.min(model_pls$validation$PRESS)
+barplot(model_pls$validation$PRESS, main = "PRESS en fonction des composantes", col = "blue", 
+        xlab = "Nombre de composantes")
+
+
+
+plot(RMSEP(model_pls),legendpos = "topright", main = "Méthode K-fold")
+summary(model_pls)
+
+Cor_model_pls <- cor(x = cbind(Y,X,genus), y = model_pls$scores)
+
+corrplot(Cor_model_pls[1:30,1:5],tl.cex = 0.4)
+corrplot(Cor_model_pls[31:60,1:5],tl.cex = 0.4)
+corrplot(Cor_model_pls[61:90,1:5],tl.cex = 0.4)
+corrplot(Cor_model_pls[91:120,1:5],tl.cex = 0.4)
+
+corrplot(Cor_model_pls,tl.cex = 0.2)
+
+### 4.3 coefficients des variables originelles
+
+data_pls <- plsr(Y~., data =data.frame("Y"=Y,X), ncomp = 22)
+fit_pls <- lm(Y~data_pls$scores, data = data.frame("Y"=Y,X))
+beta_pls <- coef(data_pls, ncomp = 22 , intercept = T)
+
+knitr::kable(cbind(c("Intercept ",names(data.frame("Y"=Y,X)[,-1])),beta_pls))
+
+##Comparaison des coefficients des varaibles originelles en fonction de la méthode
+## à reprendre 
+par(mfrow=c(1,2))
+plot(Y, fit_pls$fitted.values, xlab = "y", ylab = expression(hat(y)), main = "Regression PLS",pch =3, col = "purple" )
+abline(a=0, b=1, col ="red")
+plot(Y, model1$fitted.values, xlab = "y", ylab = expression(hat(y)), main ="ACP",pch =3, col = "purple", ylim = c(0,40) )
+abline(a=0, b=1, col ="red")
+
+
