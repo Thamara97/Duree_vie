@@ -25,7 +25,7 @@ knitr::kable(discPower(bordeaux[,1:5], bordeaux$quality))
 
 #Faire l'AFD (utilisant le critère R2 = inertie entre classes / inertie totale) de la qualité du vin en fonction des 5
 #premières variables, par la commande :
-AFDbord = desDA(bordeaux[,1:5], bordeaux$quality, covar="total")
+AFDbord  = desDA(bordeaux[,1:5], bordeaux$quality, covar="total")
 #Éditer les valeurs propres contenues dans AFDbord$values.
 
 
@@ -59,3 +59,20 @@ axis(2, pos = c(0,0), labels=FALSE, at=seq(-1,1,.5))
 #Pourquoi la qualité de représentation des variables dans les plans des composantes est-elle médiocre ?
 
 
+
+
+
+## c) Analyse factorielle discriminante PLS.
+#Lancer l'AFDPLS sur deux composantes (donc pas d'auto-sélection du nombre de composantes optimal). Toutes les
+#autres options sont par défaut (notamment validation croisée automatique sur une observation tournante, soit en mode "Leave One Out" (LOO)).
+PLSDAbord = plsDA(bordeaux[,1:5], bordeaux$quality, autosel=FALSE, comps=2)
+
+#Il y a une méthode plot associée à l'objet résultat. Pour avoir le graphique dual, il suffit donc de taper :
+plot(PLSDAbord, main = "cercle des corrélations en t1 et t2", xlab = "Composante PLS t1", ylab = "Composante PLS t2")
+
+# Comparer la proximité aux variables des composantes de l'AFD PLS à celle des composantes de l'AFD classique.
+#Pour contrôler la qualité prédictive des composantes discriminantes ainsi calculées, examiner la matrice declassements 
+knitr::kable(PLSDAbord$confusion)
+
+#Commenter. NB. Attention: il faut aller chercher, dans la
+# documentation du package, de l'information sur la règle de décision utilisée pour la prédiction!
