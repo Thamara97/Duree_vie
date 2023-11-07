@@ -1,0 +1,61 @@
+install.packages("DiscriMiner")
+install.packages("ggplot2")
+
+
+### 1/ Analyse discriminante des vins de Bordeaux ######
+
+#Le package contient un dataframe décrivant des vins de Bordeaux à l'aide de 6 variables : 5 quantitatives (année,
+#température, ensoleillement, chaleur, pluviométrie) et une nominale : la qualité (3 catégories : mauvais, moyen,
+#bon). Examinez les données
+
+bordeaux
+
+######## a) Quelques analyses de variance préliminaires######
+
+#Procéder à l'ANOVA de la qualité sur chacune des variables explicatives prises tour à tour à l'aide de la commande :
+knitr::kable(discPower(bordeaux[,1:5], bordeaux$quality))
+
+
+#N.B. Le "correlation ratio" figurant en colonne 1 n'est autre que le R2 d'anova correspondant à la variable.
+#Quelles sont les variables qui apparaissent les plus explicatives (discriminantes), prises isolément, de la qualité du vin ?
+
+
+
+## b) Analyse factorielle discriminante classique.
+
+#Faire l'AFD (utilisant le critère R2 = inertie entre classes / inertie totale) de la qualité du vin en fonction des 5
+#premières variables, par la commande :
+AFDbord = desDA(bordeaux[,1:5], bordeaux$quality, covar="total")
+#Éditer les valeurs propres contenues dans AFDbord$values.
+
+
+
+# Graphes des individus :
+bordeaux$AFDf1 = AFDbord$scores[,1]
+bordeaux$AFDf2 = AFDbord$scores[,2]
+
+#Pour afficher les individus selon leur classe (couleur) :
+plot(x=bordeaux$AFDf1, y=bordeaux$AFDf2,col=bordeaux$quality)
+
+#Pour afficher les numéros des individus à côté du symbole :
+text(x=bordeaux$AFDf1, y=bordeaux$AFDf2,label=paste(" ",1:34))
+
+#Pour afficher seulement les numéros des individus :
+plot(x=bordeaux$AFDf1, y=bordeaux$AFDf2,type="n")
+text(x=bordeaux$AFDf1, y=bordeaux$AFDf2,label=1:34)
+
+#Graphes des variables:
+plot(x=AFDbord$discor[,1],y=AFDbord$discor[,2], asp=1) 
+
+#et pour afficher les noms des variables :
+plot(x=AFDbord$discor[,1],y=AFDbord$discor[,2], type = "n", asp=1)
+text(x=AFDbord$discor[,1],y=AFDbord$discor[,2], label=rownames(AFDbord$discor))
+axis(1, pos = c(0,0), labels=FALSE, at=seq(-1,1,.5))
+axis(2, pos = c(0,0), labels=FALSE, at=seq(-1,1,.5))
+
+
+#Retrouve-t-on les variables les plus discriminantes dégagées en a) ? À quel(s) axe(s) ces dernières sont-elles
+#corrélées ? Les composantes discriminantes sont-elles fortement corrélées à certaines variables explicatives ?
+#Pourquoi la qualité de représentation des variables dans les plans des composantes est-elle médiocre ?
+
+
