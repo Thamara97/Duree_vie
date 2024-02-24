@@ -1,0 +1,926 @@
+---
+title: "TP3"
+author: "AKKOUH Maryam"
+date: "2024-02-08"
+output: html_document
+---
+
+# TP2 : Modèles paramétriques pour les durées de vie avec ou sans covariables
+
+## 1. Modèle exponentiel 
+
+Soit $X$ une variable aléatoire représentant une durée de vie (durée s’écoulant jusqu’à la survenue d’un événement d’intérêt), de loi exponentielle de paramètre $\lambda = 1$.
+
+### 1.1 Simulation d’un échantillon avec contrôle du taux d’observations censurées
+
+On commence par simuler à l'aide de la fonction rexp() un échantillon de taille $n=50$ de couples $(X_i,C_i)$, $i=1,...,n$, avec $X_i$ indépendant de $C_i$ de lois exponentielles de paramètres respectifs $\lambda=1$ et $\mu =0.5$.
+
+```{r}
+
+n1 <- 50
+lambda <- 1
+mu <- 0.5
+
+X1 <- rexp(n1,lambda)
+C1 <- rexp(n1,mu)
+data.frame(X1, C1)
+
+```
+
+Remarque : pmin(X,C) donne un minimum par coordonnées
+
+On définit ensuite un vecteur $t=min(X,C)$ et un vecteur $\delta=\mathbb{1}(X \le C)$
+
+```{r}
+t1 <- pmin(X1,C1)
+delta1 <- as.numeric(X1<=C1)
+```
+
+On détermine ensuite $\mathbb{P}(X>C)$ par le calcul : 
+
+$\mathbb{P}(X>C)$= $1 - \frac{\lambda}{\lambda+\mu}$
+
+On regarde ensuite la proportion observée de censure sur l'échantillon simulé : 
+
+```{r}
+prop_obs <- 1 - mean(delta)
+
+prop_theorique <- 1 - (lambda/(lambda+mu))
+
+abs(prop_obs-prop_theorique) #écart entre la valeur théorique et valeur observée 
+
+```
+
+On itère le calcul sur un autre échantillon : 
+
+```{r}
+
+prop_obs <- c()
+for (i in seq(1, 50)){
+  X <- rexp(n,lambda)
+  C <- rexp(n,mu)
+  t <- pmin(X,C)
+  delta <- as.numeric(X<=C)
+  prop_obs <- c(prop_obs, 1 - mean(delta))
+}
+
+plot(prop_obs, ylim = c(0, 1), type = "l", pch = 16, xlab = "N échantillon", ylab = "Proportion observée", main = "Fluctuations du taux de censure observé")
+
+# Ajout de la ligne de référence
+abline(a = 1/3, b = 0, col = "red", lty = 1)
+```
+
+
+```{r}
+abs(mean(prop_theorique-prop_obs))
+```
+
+
+L'intérêt de contrôler cette probabilité théorique, on peut contrôler le taux de censure en changeant $\lambda$ et $\mu$ par exemple.
+Pour ce choix de $\mu$ on a $\frac{1}{3}$ de données censurées. 
+
+### 1.2 Estimation du paramètre $\lambda$
+
+Calculer une estimation ponctuelle du paramètre $\lambda$ pour l’échantillon simulé.
+
+
+```{r}
+lambda_chapo <- sum(delta)/sum(t)
+```
+
+
+```{r}
+# Simulation d'un seul échantillon de taille 5000
+n_total <- 5000
+X_total <- rexp(n_total, lambda)
+C_total <- rexp(n_total, mu)
+
+# Initialisation du vecteur pour stocker les estimations de lambda
+lambda_chapeau <- numeric(n_total)
+
+# Boucle pour différentes tailles d'échantillon
+for (n in 10:n_total) {
+  # Sous-échantillon à partir de l'échantillon total
+  X <- X_total[1:n]
+  C <- C_total[1:n]
+  
+  # Calcul de T et delta
+  t <- pmin(X, C)
+  delta <- as.numeric(X <= C)
+  
+  # Calcul de l'estimation de lambda
+  lambda_hat <- sum(delta) / sum(t)
+  
+  # Stockage de l'estimation dans le vecteur
+  lambda_chapeau[n] <- lambda_hat
+}
+
+# Tracer le graphique
+
+plot(lambda_chapeau, type = "l", col = "blue", xlab = "Taille de l'échantillon", ylab = expression(hat(lambda)))
+abline(h = lambda, col = "red")
+legend("bottomright", legend = c("Estimation de lambda", "Vraie valeur de lambda"), col = c("blue", "red"), lty = 1)
+
+
+# Calcul de l'intervalle de confiance
+
+
+# Calcul de la somme des indicateurs de censure
+sum_delta <- cumsum(delta)
+
+# Calcul de la moyenne des indicateurs de censure
+mean_delta <- sum_delta / seq_along(delta)
+
+# Calcul de l'intervalle de confiance
+ci_width <- 1/sqrt(seq_along(delta)) * lambda_hat / mean_delta
+lower_bound <- lambda_hat - ci_width
+upper_bound <- lambda_hat + ci_width
+
+# Tracer le graphique avec l'intervalle de confiance
+lines(lower_bound, col = "orange", lty = 2)
+lines(upper_bound, col = "orange", lty = 2)
+
+```
+Il faudrait générer un seul échantillon de taille 5000 (à changer)
+
+Il faut ajouter les bornes de l'intervalle de confiance 
+
+On fait la même chose pour un échantillon dont le taux de censure est de 50% donc cela revient à $\mu =1$
+
+
+```{r}
+mu_bis <- 1
+# Simulation d'un seul échantillon de taille 5000
+n_total <- 5000
+X_total <- rexp(n_total, lambda)
+C_total <- rexp(n_total, mu_bis)
+
+# Initialisation du vecteur pour stocker les estimations de lambda
+lambda_chapeau <- numeric(n_total)
+
+# Boucle pour différentes tailles d'échantillon
+for (n in 10:n_total) {
+  # Sous-échantillon à partir de l'échantillon total
+  X <- X_total[1:n]
+  C <- C_total[1:n]
+  
+  # Calcul de T et delta
+  t <- pmin(X, C)
+  delta <- as.numeric(X <= C)
+  
+  # Calcul de l'estimation de lambda
+  lambda_hat <- sum(delta) / sum(t)
+  
+  # Stockage de l'estimation dans le vecteur
+  lambda_chapeau[n] <- lambda_hat
+}
+
+# Tracer le graphique
+
+plot(lambda_chapeau, type = "l", col = "blue", xlab = "Taille de l'échantillon", ylab = expression(hat(lambda)))
+abline(h = lambda, col = "red")
+legend("bottomright", legend = c("Estimation de lambda", "Vraie valeur de lambda"), col = c("blue", "red"), lty = 1)
+
+# Calcul de l'intervalle de confiance
+
+
+# Calcul de la somme des indicateurs de censure
+sum_delta <- cumsum(delta)
+
+# Calcul de la moyenne des indicateurs de censure
+mean_delta <- sum_delta / seq_along(delta)
+
+# Calcul de l'intervalle de confiance
+ci_width <- 1/sqrt(seq_along(delta)) * lambda_hat / mean_delta
+lower_bound <- lambda_hat - ci_width
+upper_bound <- lambda_hat + ci_width
+
+# Tracer le graphique avec l'intervalle de confiance
+lines(lower_bound, col = "green", lty = 2)
+lines(upper_bound, col = "green", lty = 2)
+```
+
+
+### 1.3 Estimation paramétrique de la fonction de survie
+
+
+On  fixe $n=5.000$ ici 
+```{r}
+n <- 500
+X <- rexp(n, lambda)
+C <- rexp(n, mu)
+t <- pmin(X, C)
+delta <- as.numeric(X <= C)
+hat_lambda <- sum(delta) / sum(t)
+S <- exp(-hat_lambda * seq(0, 3, 0.01))
+
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+plot(seq(0, 3, 0.01), S, type = "l", col = "blue", xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimation paramétrique de la fonction de survie", ylim = c(0, 1))
+# Superposer la courbe théorique de la fonction de survie
+lines(seq(0, 3, 0.01), S_theorique(seq(0, 3, 0.01), lambda), col = "red")
+# Légende
+legend("topright", legend = c("Estimateur de la fonction de survie", "Courbe théorique de la fonction de survie"), col = c("blue", "red"), lty = 1)
+
+```
+
+
+
+
+
+```{r}
+# Fonction de survie théorique dans le modèle exponentiel
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+# Taille de l'échantillon
+n <- 5000
+
+# Simulation d'un seul échantillon de taille 5000
+X_total <- rexp(n, lambda)
+C_total <- rexp(n, mu)
+
+# Initialisation du vecteur pour stocker les valeurs de l'estimateur de la fonction de survie
+S_hat <- numeric(length = length(seq(0, 3, by = 0.01)))
+
+# Vecteur de pas de 0.01 allant de 0 à 3
+t <- seq(0, 3, by = 0.01)
+
+# Calcul des valeurs de l'estimateur de la fonction de survie pour chaque valeur de t
+for (i in seq_along(t)) {
+  S_hat[i] <- mean(exp(-lambda * pmin(X_total, t[i])))
+}
+
+# Tracer la courbe représentative de l'estimateur de la fonction de survie
+plot(t, S_hat, type = "l", col = "blue", xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimation paramétrique de la fonction de survie", ylim=c(0,1))
+# Superposer la courbe théorique de la fonction de survie
+lines(t, S_theorique(t, lambda), col = "red")
+# Légende
+legend("topright", legend = c("Estimateur de la fonction de survie", "Courbe théorique de la fonction de survie"), col = c("blue", "red"), lty = 1)
+
+```
+Comparer graphiquement l'estimateur de Kaplan-Meier de la fonction de survie et l'estimateur $\hat{S}_n(t)$ pour $n=20,50,100,200$
+
+
+```{r}
+# Nombre d'individus dans l'échantillon
+n <- 20
+
+# Génération des échantillons X et C
+set.seed(123)  # Pour la reproductibilité
+X <- rexp(n, lambda)
+C <- rexp(n, mu)
+
+# Calcul de T et delta
+t <- pmin(X, C)
+delta <- as.numeric(X <= C)
+
+# Calcul de lambda_hat
+hat_lambda <- sum(delta) / sum(t)
+
+# Estimation de Kaplan-Meier
+surv_object <- survfit(Surv(t, delta) ~ 1)
+
+# Fonction de survie théorique
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+# Tracé de l'estimateur de Kaplan-Meier
+plot(surv_object, col = "red", mark.time = FALSE, xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimateur de Kaplan-Meier et fonction de survie théorique")
+lines(seq(0, 3, 0.01), S_theorique(seq(0, 3, 0.01), hat_lambda), col = "blue")
+legend("topright", legend = c("Estimateur de Kaplan-Meier", "Fonction de survie théorique"), col = c("red", "blue"), lty = 1)
+
+
+
+```
+
+
+```{r}
+# Nombre d'individus dans l'échantillon
+n <- 50
+
+# Génération des échantillons X et C
+set.seed(123)  # Pour la reproductibilité
+X <- rexp(n, lambda)
+C <- rexp(n, mu)
+
+# Calcul de T et delta
+t <- pmin(X, C)
+delta <- as.numeric(X <= C)
+
+# Calcul de lambda_hat
+hat_lambda <- sum(delta) / sum(t)
+
+# Estimation de Kaplan-Meier
+surv_object <- survfit(Surv(t, delta) ~ 1)
+
+# Fonction de survie théorique
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+# Tracé de l'estimateur de Kaplan-Meier
+plot(surv_object, col = "red", mark.time = FALSE, xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimateur de Kaplan-Meier et fonction de survie théorique")
+lines(seq(0, 3, 0.01), S_theorique(seq(0, 3, 0.01), hat_lambda), col = "blue")
+legend("topright", legend = c("Estimateur de Kaplan-Meier", "Fonction de survie théorique"), col = c("red", "blue"), lty = 1)
+
+```
+
+```{r}
+# Nombre d'individus dans l'échantillon
+n <- 100
+
+# Génération des échantillons X et C
+set.seed(123)  # Pour la reproductibilité
+X <- rexp(n, lambda)
+C <- rexp(n, mu)
+
+# Calcul de T et delta
+t <- pmin(X, C)
+delta <- as.numeric(X <= C)
+
+# Calcul de lambda_hat
+hat_lambda <- sum(delta) / sum(t)
+
+# Estimation de Kaplan-Meier
+surv_object <- survfit(Surv(t, delta) ~ 1)
+
+# Fonction de survie théorique
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+# Tracé de l'estimateur de Kaplan-Meier
+plot(surv_object, col = "red", mark.time = FALSE, xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimateur de Kaplan-Meier et fonction de survie théorique")
+lines(seq(0, 3, 0.01), S_theorique(seq(0, 3, 0.01), hat_lambda), col = "blue")
+legend("topright", legend = c("Estimateur de Kaplan-Meier", "Fonction de survie théorique"), col = c("red", "blue"), lty = 1)
+
+```
+
+```{r}
+# Nombre d'individus dans l'échantillon
+n <- 200
+
+# Génération des échantillons X et C
+set.seed(123)  # Pour la reproductibilité
+X <- rexp(n, lambda)
+C <- rexp(n, mu)
+
+# Calcul de T et delta
+t <- pmin(X, C)
+delta <- as.numeric(X <= C)
+
+# Calcul de lambda_hat
+hat_lambda <- sum(delta) / sum(t)
+
+# Estimation de Kaplan-Meier
+surv_object <- survfit(Surv(t, delta) ~ 1)
+
+# Fonction de survie théorique
+S_theorique <- function(t, lambda) {
+  return(exp(-lambda * t))
+}
+
+# Tracé de l'estimateur de Kaplan-Meier
+plot(surv_object, col = "red", mark.time = FALSE, xlab = "Temps", ylab = "Estimateur de la fonction de survie", main = "Estimateur de Kaplan-Meier et fonction de survie théorique", xlim=c(0,3))
+lines(seq(0, 3, 0.01), S_theorique(seq(0, 3, 0.01), hat_lambda), col = "blue")
+legend("topright", legend = c("Estimateur de Kaplan-Meier", "Fonction de survie théorique"), col = c("red", "blue"), lty = 1)
+
+```
+
+
+
+## 2. Modèle Weibull
+
+### 2.1 Estimation des paramètres avec la fonction "survreg"
+
+Simuler à l'aide de la fonction rweibull() un échantillon de $X_i, i=1,...,n$ de loi de Weibull 
+
+```{r}
+library(survival)
+set.seed(1234)
+n <- 100
+a <- 2
+b <- 5
+X = rweibull(n, shape=a, scale= b)
+model <- survreg(Surv(X)~1, dist="weibull") #pas de covariable, correspond au changement d'échelle
+summary(model)
+```
+on regarde les coefficients 
+
+```{r}
+model$coefficients
+model$scale
+model$var
+```
+
+
+
+
+loglik avec seulement mu_chapeau est la même car pas de covariable 
+on pourra regarder si avec l'ajout de covariables la vraisemblance augmente 
+log(scale)= log(sigma)
+
+```{r}
+coeff0 <- c(model$coefficients,model$scale) # mu_hat et sigma_hat
+hat_a <- 1/coeff0[2]
+hat_b <- exp(coeff0[1])
+```
+
+on peut augmenter la taille de n pour vérifier que c'est la bonne valeur 
+
+survreg avec l'erreur donne l'estimateur de la variance de mu et log(sigma), on ne peut pas construire les intervalles de confiance à partir de ça, il faut utiliser la delta méthode 
+
+```{r}
+library(msm)
+```
+
+model$var est la matrice de variance-covariance de log(sigma) et pas sigma 
+
+```{r}
+coeff0 <- model$icoef  #(avec mu_chapeau et log(sigma_chapeau))
+hat_a <- exp(-coeff0[2])
+hat_b <- exp(coeff0[1])
+deltamethod(list(~exp(-x2),~exp(x1)), coeff0, model$var,ses=TRUE)  # écart-types estimés, SES = true on n'a pas les covariances seult les var
+
+```
+
+```{r}
+library(flexsurv)
+set.seed(123)
+model2 <- flexsurvreg(Surv(X) ~ 1, dist = "weibull")
+model2
+plot(model2, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Estimation de la fonction de survie avec flexsurvreg")
+
+#lines(model, type="survival", est=TRUE, ci = FALSE, col=blue)
+```
+
+La survregflex donne directement les paramètres de la Weibull et donne directement les IC avec les écarts-types obtenus avec la delta méthdoe 
+en rouge : fct de sruvie estimée 
+intervalles de confiance en pointillés rouges 
+et superpose le kaplan-Meier également 
+la fonction discrimine entre plusieurs modèles paramétriques de forme graphique 
+
+
+On refait ce qui a été fait précédemment mais cette fois-ci avec un échantillon censuré : 
+
+```{r}
+set.seed(123)  # Fixer la graine pour la reproductibilité
+n <- 50
+W <- rweibull(n, shape = 2, scale = 5)
+C <- rexp(n, 0.07)  # Simulation de l'échantillon censuré
+t_w <- pmin(W,C)
+delta_w <- as.numeric(W<=t_w)
+1- mean(delta_w) #taux de censure
+
+data_censure <- data.frame(time = pmin(W, C), status = W <= C)
+model_censure <- survreg(Surv(time, status) ~ 1, data = data_censure, dist = "weibull") #pas de covariable, correspond au changement d'échelle
+summary(model_censure)
+
+```
+
+On regarde à nouveau les coefficinets : 
+
+```{r}
+model_censure$coefficients
+model_censure$scale
+model_censure$var
+```
+
+On calcule les estimations des paramètres a et b :
+
+```{r}
+coeff0_censure <- c(model_censure$coefficients,model_censure$scale) # mu_hat et sigma_hat
+hat_a_censure <- 1/coeff0_censure[2]
+hat_b_censure <- exp(coeff0_censure[1])
+hat_a_censure
+hat_b_censure
+```
+
+matrice de variance-covariance 
+
+```{r}
+coeff0_censure <- model_censure$icoef  #(avec mu_chapeau et log(sigma_chapeau))
+hat_a_censure <- exp(-coeff0_censure[2])
+hat_b_censure <- exp(coeff0_censure[1])
+hat_a_censure
+hat_b_censure
+deltamethod(list(~exp(-x2),~exp(x1)), coeff0_censure, model_censure$var,ses=TRUE)  # écart-types estimés, SES = true on n'a pas les covariances seult les var
+
+```
+
+On refait le flexsurvreg avec l'échantillon censuré :
+
+```{r}
+library(flexsurv)
+set.seed(123)
+
+# Simulation de l'échantillon censuré
+n <- 50
+W <- rweibull(n, shape = 2, scale = 5)
+C <- rexp(n, 0.07)  # Simulation de l'échantillon censuré
+t_w <- pmin(W, C)
+delta_w <- as.numeric(W <= t_w)
+
+# Création du dataframe pour le modèle censuré
+data_censure <- data.frame(time = t_w, status = delta_w)
+
+# Ajustement du modèle de régression de survie (censuré) avec flexsurvreg
+model_censure <- flexsurvreg(Surv(time, status) ~ 1, data = data_censure, dist = "weibull")
+
+# Résumé du modèle
+summary(model_censure)
+
+# Tracé de la courbe de survie
+plot(model_censure, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Estimation de la fonction de survie avec flexsurvreg (censure)")
+
+
+```
+
+
+On refait la même chose cette fois-ci avec $n=100$ :
+
+
+```{r}
+set.seed(123)  # Fixer la graine pour la reproductibilité
+n_bis <- 100
+W <- rweibull(n_bis, shape = 2, scale = 5)
+C <- rexp(n_bis, 0.07)  # Simulation de l'échantillon censuré
+t_w <- pmin(W,C)
+delta_w <- as.numeric(W<=t_w)
+
+data_censure <- data.frame(time = pmin(W, C), status = W <= C)
+model_censure <- survreg(Surv(time, status) ~ 1, data = data_censure, dist = "weibull") #pas de covariable, correspond au changement d'échelle
+summary(model_censure)
+
+
+#estimation des coefficients
+
+coeff0_censure <- c(model_censure$coefficients,model_censure$scale) # mu_hat et sigma_hat
+hat_a_censure <- 1/coeff0_censure[2]
+hat_b_censure <- exp(coeff0_censure[1])
+hat_a_censure
+hat_b_censure
+
+
+#estimation des variances 
+
+coeff0_censure <- model_censure$icoef  #(avec mu_chapeau et log(sigma_chapeau))
+deltamethod(list(~exp(-x2),~exp(x1)), coeff0_censure, model_censure$var,ses=TRUE)  # écart-types estimés, SES = true on n'a pas les covariances seult les var
+
+
+#flexsurvreg 
+
+library(flexsurv)
+set.seed(123)
+
+# Ajustement du modèle de régression de survie (censuré) avec flexsurvreg
+model_censure_flex <- flexsurvreg(Surv(time, status) ~ 1, data = data_censure, dist = "weibull")
+
+# Résumé du modèle
+summary(model_censure_flex)
+
+# Tracé de la courbe de survie
+plot(model_censure_flex, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Estimation de la fonction de survie avec flexsurvreg (censure)")
+
+
+```
+
+
+On refait la même chose avec X suivant une loi log-normale (de paramètres $\mu=0$ et $\sigma=\frac{1}{4}$) 
+
+```{r}
+library(flexsurv)
+set.seed(1234)
+n <- 100
+mu <- 0
+sigma <- 1/4
+X <- rlnorm(n, meanlog = mu, sdlog = sigma)
+model_lognorm <- flexsurvreg(Surv(X)~1, dist="lnorm" )
+model_lognorm
+
+plot(model_lognorm, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Estimation de la fonction de survie avec flexsurvreg")
+
+#lines(model, type="survival", est=TRUE, ci = FALSE, col=blue)
+```
+
+Echantillon censuré :
+
+```{r}
+set.seed(123)
+C <- rexp(n, 0.07)  # Simulation de l'échantillon censuré
+
+data_censure <- data.frame(time = pmin(X, C), status = X <= C)
+model_censure_flex <- flexsurvreg(Surv(time, status) ~ 1, data = data_censure, dist = "lnorm")
+model_censure_flex
+
+plot(model_censure_flex, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Estimation de la fonction de survie avec flexsurvreg")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 4. Ajout d'une covariable 
+
+
+```{r}
+n <- 100
+W <- log(-log(1-runif(2*n,0,1)))
+Z <- c(rep(0,n), rep(1,n))
+mu <- 2
+gamma <- 3
+sigma <- 0.5
+X <- exp(mu+gamma*Z+sigma*W)
+lambda <- 0.00003 
+C = rexp(2*n, 0.01)
+
+
+
+tt = pmin(X,C)
+delta = as.numeric(tt==X)
+mydata = data.frame(tt,delta,Z)
+model_cov <- survreg(Surv(tt, delta)~Z,data=mydata, dist="weibull" )
+summary(model_cov)
+ 
+```
+
+Etude de la sensibilité en examinant les écarts types des estimateurs : 
+
+```{r}
+set.seed(123)
+for(n in c(100,200,500)){
+  for(mu in c(0.01, 0.003)){
+W <- log(-log(1-runif(2*n,0,1)))
+Z <- c(rep(0,n), rep(1,n))
+gamma <- 3
+sigma <- 0.5
+X <- exp(mu+gamma*Z+sigma*W)
+lambda <- 0.00003 
+C = rexp(2*n, 0.01)
+tt = pmin(X,C)
+delta = as.numeric(tt==X)
+mydata = data.frame(tt,delta,Z)
+model_cov <- survreg(Surv(tt, delta)~Z,data=mydata, dist="weibull" )
+print(c(n, mu, summary(model_cov)))}
+}
+```
+```{r}
+set.seed(123)
+cox_snell_residuals <- function(model, data) {
+  # Extraction des coefficients du modèle
+  mu_hat <- coef(model)["(Intercept)"]
+  gamma_hat <- coef(model)["Z"]
+  sigma_hat <- summary(model)$scale
+  
+  # Génération de W
+  W <- log(-log(1-runif(2*n,0,1)))
+
+  # Calcul du prédicteur linéaire
+  linear_predictor <- mu_hat + gamma_hat * data$Z + sigma_hat * W
+  
+  # Calcul des temps de survie prédits
+  predicted_survival <- pweibull(data$tt, shape = exp(linear_predictor), scale = exp(sigma_hat))
+  
+  # Calcul des résidus de Cox-Snell
+  cox_snell_resid <- -log(1 - predicted_survival)
+  
+  return(cox_snell_resid)
+}
+
+# Utilisation avec un modèle de Weibull
+model <- survreg(Surv(tt, delta) ~ Z, data = mydata, dist = "weibull")
+cox_snell_resid <- cox_snell_residuals(model, mydata)
+
+# Calcul de la fonction de risque cumulé pour une loi exponentielle de paramètre λ = 1
+times <- seq(0, max(mydata$tt), 0.001)  # Séquence de temps
+#cumulative_hazard_exponential <- rep(1,times)
+
+# Tracé de l'estimateur de Nelson-Aalen
+plot(survfit(Surv(tt, delta) ~ 1), xlab = "Temps", ylab = "Estimateur de Nelson-Aalen", 
+     main = "Estimateur de Nelson-Aalen avec Comparaison à une loi exponentielle", xlim = c(0, 10))
+abline(h=1,col="blue")
+# Ajout de la fonction de risque cumulé de la loi exponentielle
+#lines(times, cumulative_hazard_exponential, col = "blue", lty = 1)
+
+# Légende
+legend("topright", legend = c("Estimateur de Nelson-Aalen", "Loi exponentielle"), 
+       col = c("black", "blue"), lty = c(1, 1))
+
+# Tracé des résidus de Cox-Snell
+plot(mydata$tt, cox_snell_resid, xlab = "Temps", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell pour un modèle de Weibull", xlim =c(0,2), ylim=c(0,2))
+abline(a = 0, b = 1, col = "red")
+```
+```{r}
+# Définition de la fonction pour calculer les résidus de Cox-Snell
+cox_snell_residuals <- function(model, data) {
+  # Extraction des coefficients du modèle
+  mu_hat <- coef(model)["(Intercept)"]
+  gamma_hat <- coef(model)["Z"]
+  sigma_hat <- summary(model)$scale
+  
+  # Génération de W
+  W <- log(-log(1-runif(2*n,0,1)))
+
+  # Calcul du prédicteur linéaire
+  linear_predictor <- mu_hat + gamma_hat * data$Z + sigma_hat * W
+  
+  # Calcul des temps de survie prédits
+  predicted_survival <- pweibull(data$tt, shape = exp(linear_predictor), scale = exp(sigma_hat))
+  
+  # Calcul des résidus de Cox-Snell
+  cox_snell_resid <- -log(1 - predicted_survival)
+  
+  return(cox_snell_resid)
+}
+
+# Utilisation avec un modèle de Weibull
+model <- survreg(Surv(tt, delta) ~ Z, data = mydata, dist = "weibull")
+cox_snell_resid <- cox_snell_residuals(model, mydata)
+
+# Tracé des résidus de Cox-Snell
+plot(mydata$tt, cox_snell_resid, xlab = "Temps", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell pour un modèle de Weibull")
+
+```
+
+
+
+# Application aux données alloauto
+
+```{r}
+install.packages("KMsurv")
+library(KMsurv)
+data(alloauto)
+?alloauto
+
+```
+
+```{r}
+# Installation du package survival (décommentez la ligne suivante si le package n'est pas déjà installé)
+# install.packages("survival")
+
+# Chargement du package survival
+library(survival)
+
+# Chargement des données "alloauto"
+data(alloauto)
+
+
+# Taux de censure 
+sum(alloauto$delta == 0) / nrow(alloauto)
+
+# fonction de survie globale 
+survfit_object <- survfit(Surv(time, delta) ~ 1, data = alloauto)
+
+plot(survfit_object, xlab = "Temps (mois)", ylab = "Probabilité de survie", main = "Fonction de survie globale")
+
+
+# Création du modèle de survie
+survival_model <- survfit(Surv(time, delta) ~ type, data = alloauto)
+
+# Tracé des courbes de survie
+plot(survival_model, col = c("blue", "red"), lty = c(1, 1), 
+     xlab = "Temps (mois)", ylab = "Probabilité de survie", 
+     main = "Courbes de survie par type de greffe")
+
+# Ajout de la légende
+legend("topright", legend = c("Greffe allogénique", "Greffe autologue"), 
+       col = c("blue", "red"), lty = c(1, 1))
+
+# Test du log-rank
+logrank_test <- survdiff(Surv(time, delta) ~ type, data = alloauto)
+logrank_test
+
+```
+
+
+
+```{r}
+# Chargement du package flexsurv
+install.packages("flexsurv")
+library(flexsurv)
+
+# Convertir la covariable en facteur
+alloauto$type <- factor(alloauto$type)
+
+# Ajustement des modèles de régression paramétriques
+weibull_model <- flexsurvreg(Surv(time, delta) ~ 1, data = alloauto, dist = "weibull")
+loglogistic_model <- flexsurvreg(Surv(time, delta) ~ 1, data = alloauto, dist = "llogis")
+lognormal_model <- flexsurvreg(Surv(time, delta) ~ 1, data = alloauto, dist = "lnorm")
+
+# Calcul des valeurs AIC pour chaque modèle
+AIC_values <- c(AIC(weibull_model), AIC(loglogistic_model), AIC(lognormal_model))
+
+# Création d'un vecteur contenant les noms des modèles
+model_names <- c("Weibull", "Log-logistique", "Log-normal")
+
+# Création du tableau de données contenant les noms des modèles et les valeurs de l'AIC
+AIC_table <- data.frame(Model = model_names, AIC = AIC_values)
+
+# Superposition des courbes de survie ajustées
+plot(weibull_model, col ="red", lwd = 2, lty = 1:2, ylim = c(0, 1), xlab = "Time", ylab = "Probabilité de survie", main = "Modèle de Weibull")
+plot(loglogistic_model, col =  "blue", lwd = 2, lty = 1:2, ylim = c(0, 1), xlab = "Time", ylab = "Probabilité de survie", main = "Modèle log-logistique")
+plot(lognormal_model, col = c("red", "blue"), lwd = 2, lty = 1:2, ylim = c(0, 1), xlab = "Time", ylab = "Probabilité de survie", main = "Modèle log-normal")
+
+legend("topright", legend = c("Weibull", "Log-Logistic", "Log-Normal"), col = c("red", "green", "purple"), lwd = 2, lty = 1:3)
+
+
+#autres modèles
+gompertz_model <- flexsurvreg(Surv(time, delta) ~ 1, data = alloauto, dist = "gompertz")
+exponential_model <- flexsurvreg(Surv(time, delta) ~ 1, data = alloauto, dist = "exponential")
+
+# Visualisation graphique uniquement, pas d'ajustement
+plot(gompertz_model, col = "orange", lwd = 2, main = "Ajustement du modèle Gompertz")
+plot(exponential_model, col = "brown", lwd = 2, main = "Ajustement du modèle Exponentiel")
+
+
+```
+
+
+Résidus de cox-snell :
+
+```{r}
+# Calcul des résidus de Cox-Snell pour chaque modèle
+cox_snell_resid_weibull <- residuals(weibull_model, type = "coxsnell")
+cox_snell_resid_loglogistic <- residuals(loglogistic_model, type = "coxsnell")
+cox_snell_resid_lognormal <- residuals(lognormal_model, type = "coxsnell")
+
+# Tracé des résidus de Cox-Snell pour chaque modèle
+plot(cox_snell_resid_weibull, xlab = "Observation", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell - Modèle Weibull")
+
+plot(cox_snell_resid_loglogistic, xlab = "Observation", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell - Modèle Log-logistique")
+
+plot(cox_snell_resid_lognormal, xlab = "Observation", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell - Modèle Log-normal")
+
+
+cox_snell_resid_gompertz <- residuals(gompertz_model, type = "coxsnell")
+
+# Tracé des résidus de Cox-Snell pour le modèle de Gompertz
+plot(cox_snell_resid_gompertz, xlab = "Observation", ylab = "Résidus de Cox-Snell", 
+     main = "Résidus de Cox-Snell - Modèle de Gompertz")
+
+
+```
+
+Avec covariable type :
+
+
+```{r}
+# Chargement du package flexsurv
+install.packages("flexsurv")
+library(flexsurv)
+
+# Convertir la covariable en facteur
+alloauto$type <- factor(alloauto$type)
+
+# Ajustement des modèles de régression paramétriques
+weibull_model <- flexsurvreg(Surv(time, delta) ~ type, data = alloauto, dist = "weibull")
+loglogistic_model <- flexsurvreg(Surv(time, delta) ~ type, data = alloauto, dist = "llogis")
+lognormal_model <- flexsurvreg(Surv(time, delta) ~ type, data = alloauto, dist = "lnorm")
+
+
+# Tracer les courbes de survie ajustées
+plot(weibull_model, col = "red", lwd = 2, main = "Courbe de survie ajustée : Weibull", xlab = "Temps", ylab = "Survie")
+plot(loglogistic_model, col = "blue", lwd = 2, main = "Courbe de survie ajustée : log-logistique", xlab = "Temps", ylab = "Survie")
+plot(lognormal_model, col = "green", lwd = 2, main = "Courbe de survie ajustée : log-normal", xlab = "Temps", ylab = "Survie")
+
+gompertz_model <- flexsurvreg(Surv(time, delta) ~ type, data = alloauto, dist = "gompertz")
+plot(gompertz_model, col = "pink", lwd = 2, main = "Courbe de survie ajustée : Gompertz", xlab = "Temps", ylab = "Survie")
+
+```
+
+
+
+Pour les données réelles on ne connaît pas la vraie loi, on veut trouver le meilleur modèle paramétrique 
