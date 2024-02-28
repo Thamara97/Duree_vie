@@ -20,7 +20,7 @@ modW1 <- survreg(dt ~ laser + age + eye + trt + risk, data = diabetic,
                 dist = "weibull")
 summary(modW1)
 
-# test (modèle null contre modèle complet)
+# test (modèle nul contre modèle complet)
 anova(modW1)
 lrtest(modW1) # test du rapport de vraisemblance
 waldtest(modW1) # test de wald
@@ -30,33 +30,37 @@ stepAIC(modW1, k = 2) # AIC
 stepAIC(modW1, k = log(nrow(diabetic))) # BIC
 
 # modèle final
-modW2 <- flexsurvreg(dt ~ eye + trt + risk, dist = "weibull",
+modW2 <- flexsurvreg(dt ~ trt + risk, dist = "weibull",
                         data = diabetic)
 modW2
 
 # comparaison à l'estimateur de Kaplan-Meier
-plot(modW2, type = "survival", est = TRUE, ci = TRUE)
+plot(modW2, type = "survival", est = TRUE, ci = TRUE,
+     xlab = "Temps", ylab = "Probabiltié de survie",
+     main = "Estimation de la fonction de survie dans le modèle de Weibull")
+legend(x = "bottomleft", legend = c("Modèle de Weibull", "Kaplan-Meier"),
+       title = "Estimateur", col = c("red", "black"), lty = 1, lwd = c(2, 1),
+       cex = 0.7)
 
 # résidus de Cox-Snell
-gp <- ifelse(diabetic$eye == "right", 1, 0)
-
-Rw <- (exp(-(log(466.4812) - 0.4287 * gp + 1.0166 * diabetic$trt -
-               0.1743 * diabetic$risk)) * diabetic$time)^0.8181
-
-plot(survfit(Surv(Rw, status) ~ 1, data = diabetic, ctype = 1),
-     fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
+resW <- residuals(modW2, type = "coxsnell")
+plot(survfit(Surv(resW, status) ~ 1,
+             data = diabetic, ctype = 1),
+     fun = "cumhaz", xlab = "Résidus", ylab = "Risque cumulé",
      main = expression(paste(
        "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
-     sub = "Modèle de Weibull", lty = c(1,2)
+     lty = c(1, 2, 2)
 )
 abline(a = 0, b = 1, col = "red")
+
+
 
 # Modèle de log-logistique
 modLl1 <- survreg(dt ~ laser + age + eye + trt + risk, data = diabetic,
                 dist = "loglogistic")
 summary(modLl1)
 
-# test (modèle null contre modèle complet)
+# test (modèle nul contre modèle complet)
 anova(modLl1)
 lrtest(modLl1) # test du rapport de vraisemblance
 waldtest(modLl1) # test de wald
@@ -66,24 +70,28 @@ stepAIC(modLl1, k = 2) # AIC
 stepAIC(modLl1, k = log(nrow(diabetic))) # BIC
 
 # modèle final
-modLl2 <- flexsurvreg(dt ~ eye + trt + risk, dist = "llogis",
+modLl2 <- flexsurvreg(dt ~ trt + risk, dist = "llogis",
                         data = diabetic)
 modLl2
 
 # comparaison à l'estimateur de Kaplan-Meier
 plot(modLl2, type = "survival", est = TRUE, ci = TRUE,
-     main = "Estimateur de la fonction de survie \n Modèle log-logistique",
-     xlab = "Temps", ylab = "Probabilité", sub = "Modèle log-logistique")
+     main = "Estimation de la fonction de survie dans le modèle log-logistique",
+     xlab = "Temps", ylab = "Probabilité de survie", col = "green")
+lines(modW2, type = "survival", est = TRUE, ci = FALSE, col = "red", lwd = 1)
+legend(x = "bottomleft",legend = c("Modèle de log-logistique",
+                                   "Modèle de Weibull",
+                                   "Kaplan-Meier"),
+       title = "Estimateur", col = c("green", "red", "black"), lty = 1,
+       lwd = c(2, 1, 1), cex = 0.7)
 
 # résidus de Cox-Snell
-Rll <- log(1 + (exp(-(log(380.6968) -0.5072 * gp + 1.0777 * diabetic$trt
-          -0.1979 * diabetic$risk)) * diabetic$time)^0.9600)
-
-plot(survfit(Surv(Rll, status) ~ 1, data = diabetic, ctype = 1),
-     fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
+resll <- residuals(modLl2, type = "coxsnell")
+plot(survfit(Surv(resll, status) ~ 1, data = diabetic, ctype = 1),
+     fun = "cumhaz", xlab = "Résidus", ylab = "Risque cumulé",
      main = expression(paste(
        "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
-     sub = "Modèle de log-logistique", lty = c(1,2)
+     lty = c(1,2,2)
 )
 abline(a = 0, b = 1, col = "red")
 
@@ -92,7 +100,7 @@ modLn1 <- survreg(dt ~ laser + age + eye + trt + risk, data = diabetic,
                   dist = "lognormal")
 summary(modLn1)
 
-# test (modèle null contre modèle complet)
+# test (modèle nul contre modèle complet)
 anova(modLn1)
 lrtest(modLn1) # test du rapport de vraisemblance
 waldtest(modLn1) # test de wald
@@ -102,27 +110,46 @@ stepAIC(modLn1, k = 2) # AIC
 stepAIC(modLn1, k = log(nrow(diabetic))) # BIC
 
 # modèle final
-modLn2 <- flexsurvreg(dt ~ eye + trt + risk, dist = "lnorm",
+modLn2 <- flexsurvreg(dt ~ trt + risk, dist = "lnorm",
                       data = diabetic)
 modLn2
 
 # comparaison à l'estimateur de Kaplan-Meier
 plot(modLn2, type = "survival", est = TRUE, ci = TRUE,
-     main = "Estimateur de la fonction de survie \n Modèle log-normale",
-     xlab = "Temps", ylab = "Probabilité")
+     main = "Estimation de la fonction de survie dans le modèle log-normale",
+     xlab = "Temps", ylab = "Probabilité", col = "blue")
+legend(x = "bottomleft",legend = c("Moddèle log-normale", "Kaplan-Meier"),
+       title = "Estimateur", col = c("blue", "black"), lty = 1,
+       lwd = c(2, 1), cex = 0.7)
 
 # résidus de Cox-Snell
-modLn3 <- survreg(dt ~ eye + trt + risk, data = diabetic, dist = "lognormal")
-Rln <- - log(1 - pnorm((log(diabetic$time) - modLn3$coefficients[1] -
-                          modLn3$coefficients[2] * gp -
-                          modLn3$coefficients[3] * diabetic$trt -
-                          modLn3$coefficients[4] * diabetic$risk) /
-                         modLn3$scale))
+resln <- residuals(modLn2, type = "coxsnell")
 
-plot(survfit(Surv(Rln, status) ~ 1, data = diabetic, ctype = 1),
+plot(survfit(Surv(resln, status) ~ 1, data = diabetic, ctype = 1),
      fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
      main = expression(paste(
        "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
      sub = "Modèle de log-logistique", lty = c(1,2)
+)
+abline(a = 0, b = 1, col = "red")
+
+# Modèle de gompertz
+modGp <- flexsurvreg(dt ~ trt + risk, dist = "gompertz",
+                      data = diabetic)
+modGp
+
+# comparaison à l'estimateur de Kaplan-Meier
+plot(modLl2, type = "survival", est = TRUE, ci = TRUE,
+     main = "Estimateur de la fonction de survie \n Modèle log-logistique",
+     xlab = "Temps", ylab = "Probabilité", sub = "Modèle log-logistique")
+
+# résidus de Cox-Snell
+resgp <- residuals(modGp, type = "coxsnell")
+
+plot(survfit(Surv(resgp, status) ~ 1, data = diabetic, ctype = 1),
+     fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
+     main = expression(paste(
+       "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
+     sub = "Modèle gompertz", lty = c(1,2)
 )
 abline(a = 0, b = 1, col = "red")
