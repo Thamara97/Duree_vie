@@ -1,935 +1,389 @@
 ---
-title: 'TP2 : Modèles paramétriques pour les durées de vie avec et sans covariables'
+title: 'TP1 : Estimation et comparaison de courbes de survie'
 author: "Thamara RENOIR"
 date: "`r Sys.Date()`"
 output:
   pdf_document: default
+subtitle: 'Exercice 3 : Traitement des données Pharmacosmoking'
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 4)
 ```
 
-```{r include=FALSE}
-library(survival) ; library(msm) ; library(flexsurv)
-library(survminer)
-```
-
-# 1. Modèle exponentiel
-
-Soit $X$, une variable aléatoire représentant une durée de vie de loi exponentielle de paramètre $\lambda = 1$.
-
-## 1.1. Simulation d'un échantillon avec contrôle du taux d'observations censurées
-
-Nous commençons par simuler des échantillons de taille $n = 50$ couples $\left( X_i, C_i \right)$, $i = 1, \dots, n$ avec $X_i$ indépendant de $C_i$, de lois exponentielles de paramètres respectifs $\lambda = 1$ et $\mu = 0.5$. Puis nous définissons les vecteurs $T = \min(X, C)$ et $\delta = \mathbb{1}(X \le C)$.
-
-```{r echo=FALSE}
-n <- 50
-lambda <- 1
-mu <- 0.5
-
-taux_cens <- rep(0, 50)
-
-for (i in 1:50) {
-  X <- rexp(n, lambda)
-  C <- rexp(n, mu)
-
-  T_i <- pmin(X, C)
-  delta <- as.numeric(X == T_i)
-  
-  # proportion de censure observée
-  taux_cens[i] <- 1 - sum(delta)/n
-}
-```
-
-Calculons le taux théorique de censure, c'est-à-dire $\mathbb P(X > C)$.
-
-$$
-\begin{array}{lll}
-\mathbb P(X > C) & = & \mathbb E \left[ 1_{(X > C)} \right] \\
-& = & 1 - \frac{\lambda}{\lambda + \mu} \\
-& = & 1 - \frac{1}{1 + \frac{1}{2}} \\
-& = & \frac{1}{3}
-\end{array}
-$$
-
-Le taux de censure théorique des données est donc $\frac{1}{3}$. Nous pouvons comparer ce taux théorique à la proportion observée de censure sur les échantillons simulés.
-
-```{r echo=FALSE, fig.height=4}
-plot(taux_cens, xlab = "Echantillon", ylab = "Proportion de censure",
-     main = "Proportion observée de censure sur des échantillons simulés", pch = 20)
-abline(h = 1 - lambda / (lambda + mu), col = "red", lwd = 2)
-legend(x = "bottomright", legend = "Taux de censure \n théorique",
-       col = "red", lty = 1, lwd = 2, cex = 0.6)
-```
-
-Bien que la proportion de censure observée soit rarement égale au taux théorique, elle fluctue autour de ce dernier.
-
-## 1.2. Estimation du paramètre $\lambda$
-
-Calculons une estimation ponctuelle du paramètre $\lambda$ d'un échantillon simulé.
-
-Notons $\hat \lambda_n$ l'estimateur de $\lambda$ pour un échantillon de taille $n$, alors
-
-$$
-\hat \lambda_n = \frac{\sum_{i=1}^n \delta_i}{\sum_{i=1}^n T_i}
-$$
-
-et, en utilisant le Théorème central limite et la $\delta$-méthode, on déduit un intervalle de confiance à $95 \%$ de $\lambda$ :
-
-$$
-\left[ \hat \lambda_n - 1.96 \frac{\hat \lambda_n}{\sqrt{\sum_{i=1}^n \delta_i}}
-~ ; ~
-\hat \lambda_n + 1.96 \frac{\hat \lambda_n}{\sqrt{\sum_{i=1}^n \delta_i}} \right]
-$$
-
-Nous calculons et représentons $\hat \lambda_n$ pour différentes tailles d'échantillon ainsi que les bornes de l'intervalle de confiance ponctuel.
-
-```{r echo=FALSE}
-set.seed(6434)
-
-n <- 5000
-X <- rexp(n, lambda)
-C <- rexp(n, mu)
-
-T_i <- pmin(X, C)
-delta <- as.numeric(X == T_i)
-
-hat_lambda <- rep(NA, n)
-born_inf <- rep(NA, n)
-born_sup <- rep(NA, n)
-
-# Estimation de lambda pour plusieurs taille d'échantillon
-for (i in 10:n) {
-  hat_lambda[i] <- sum(delta[1:i]) / sum(T_i[1:i])
-  
-  born_inf[i] <- hat_lambda[i] - 1.96 * hat_lambda[i] / sqrt(sum(delta[1:i]))
-  born_sup[i] <- hat_lambda[i] + 1.96 * hat_lambda[i] / sqrt(sum(delta[1:i]))
+```{r source, include=FALSE}
+# calcul du risque relatif
+risk <- function(test){
+  r <- (test$obs[1] / test$exp[1]) / (test$obs[2] / test$exp[2])
+  if (r < 1) {r <- 1/r}
+  return(r)
 }
 
-plot(hat_lambda, type = "l", xlab = "n", ylab = expression(hat(lambda)[n]),
-     main = expression(paste("Estimateurs de ",
-                             lambda,
-                             " et leur intervalle de confiance poncutel")))
-lines(born_sup, col = "blue")
-lines(born_inf, col = "blue")
-abline(h = lambda, col = "red")
-legend(x = "bottomright", legend = c(expression(hat(lambda)[n]),
-                                  "IC(0.95) ponctuel", expression(lambda)),
-       cex = 0.7, col = c("black", "blue", "red"), lty = 1, lwd = 2)
-```
-
-En théorie, l'estimateur $\hat \lambda_n$ converge vers $\lambda$. Nous observons cette convergence sur la représentation graphique ci-dessus, où $\hat \lambda_n$ semble converger vers $1$ qui est la vraie valeur de $\lambda$. Notons que cette dernière est dans l'intervalle de confiance pour tout $n$, bien que l'estimation sous-estime la vraie valeur.
-
-Nous pouvons également modifier le taux de censure de l'échantillon simulé. Comme le taux de censure est $\mathbb P(X > C) = 1 - \frac{\lambda}{\lambda + \mu}$, alors à $\lambda$ fixé, il suffit de trouver $\mu$ tel que $\mathbb P(X > C) = c$, le taux souhaité. Pour cela, il faut choisir $\mu = \frac{\lambda}{1 - c} - \lambda$.
-
-Ainsi, pour avoir un taux de censure de $50\%$ avec $\lambda = 1$, il faut prendre $\mu = 1$.
-
-Si nous calculons à nouveau la proportion de censure observée dans des échantillons tels que $\lambda = \mu = 1$ nous constatons à nouveau que même s'ils ne soient pas toujours égaux à $50 \%$, les taux observés sont proches de $50 \%$.
-
-```{r echo=FALSE, fig.height=4}
-n <- 50
-lambda <- 1
-mu <- 1
-
-taux_cens <- rep(0, 50)
-
-for (i in 1:50) {
-  X <- rexp(n, lambda)
-  C <- rexp(n, mu)
-
-  T_i <- pmin(X, C)
-  delta <- as.numeric(X == T_i)
-  
-  # proportion de censure observée
-  taux_cens[i] <- 1 - sum(delta)/n
+# Graphiques ggsurvplot (avec intervalles de confiance)
+gg_graph <- function(fit, conf.int = TRUE, col, legend = NULL, title = NULL) {
+  ggsurvplot(
+    fit = fit, data = dt,
+    conf.int = conf.int,
+    pval = FALSE,
+    surv.median.line = "hv",
+    palette = col,
+    ggtheme = theme_light() %+replace% theme(plot.title=element_text(hjust=0.5)),
+    legend.labs = legend, legend.title = "Groupes :", title = title,
+    font.title = "bold",
+    xlab = "Jours", ylab = "Probabilité de survie"
+  )
 }
 
-plot(taux_cens, xlab = "Echantillon", ylab = "Proportion de censure",
-     main = "Proportion observée de censure sur des échantillons simulés", pch = 20)
-abline(h = 1 - lambda / (lambda + mu), col = "red", lwd = 2)
-legend(x = "bottomright", legend = "Taux de censure \n théorique",
-       col = "red", lty = 1, lwd = 2, cex = 0.6)
-```
-
-De la même façon, nous observons toujours la convergence de $\hat \lambda_n$ vers $\lambda$.
-
-```{r echo=FALSE}
-set.seed(6434)
-
-n <- 5000
-mu <- 1
-lambda <- 1
-X <- rexp(n, lambda)
-C <- rexp(n, mu)
-
-T_i <- pmin(X, C)
-delta <- as.numeric(X == T_i)
-
-hat_lambda <- rep(NA, n)
-born_inf <- rep(NA, n)
-born_sup <- rep(NA, n)
-
-# Estimation de lambda pour plusieur taille d'échantillon
-for (i in 10:n) {
-  hat_lambda[i] <- sum(delta[1:i]) / sum(T_i[1:i])
-  
-  born_inf[i] <- hat_lambda[i] - 1.96 * hat_lambda[i] / sqrt(sum(delta[1:i]))
-  born_sup[i] <- hat_lambda[i] + 1.96 * hat_lambda[i] / sqrt(sum(delta[1:i]))
+# Graphiques avec bande de confiance
+plot_graph <- function(fit, band.conf = TRUE, covar, grp, title, col, legend) {
+  plot(fit, conf.int = FALSE, col = col,
+       main = title,
+       xlab = "Jours", ylab = "Probabilité de survie")
+  c <- 0
+  if (band.conf) {
+    for (i in grp) {
+      c <- c + 1 
+      lines(km.ci(survfit(dt1[covar == i] ~ 1, data = dt),
+                  method = c("hall-wellner")), col = col[c], lty = 3)
+    } 
+  }
+  legend(x = "topright", legend = legend,
+         title = "Groupes", col = col, lty = 3, cex = 0.7)
 }
 
-plot(hat_lambda, type = "l", xlab = "n", ylab = expression(hat(lambda)[n]),
-     main = expression(paste("Estimateurs de ",
-                             lambda,
-                             " et leur intervalle de confiance poncutel")))
-lines(born_sup, col = "blue")
-lines(born_inf, col = "blue")
-abline(h = lambda, col = "red")
-legend(x = "bottomright", legend = c(expression(hat(lambda)[n]),
-                                  "IC(0.95) ponctuel", expression(lambda)),
-       cex = 0.7, col = c("black", "blue", "red"), lty = 1, lwd = 2)
-```
-
-## 1.3. Estimation paramétrique de la fonction de survie
-
-On construit un estimateur paramétrique $\hat S_n (t) = \exp(- \hat \lambda_n t)$ de la fonction de survie $S(t)$ dans le modèle exponentiel. Nous travaillerons avec l'échantillon simulé précédemment, donc $n=5000$ et $\lambda = \mu =1$.
-
-Nous pouvons montrer que
-
-$$
-\sup_{t \ge 0} | \hat S_n(t) - S(t) | \le \frac{\hat \lambda_n - \lambda}{\max(\lambda; \hat \lambda_n)}
-$$
-
-Notons $q_{1 - \frac{\alpha}{2}}$ le quantile d'ordre $1 - \frac{\alpha}{2}$ de la loi normale centrée réduite.
-
-Nous savons que
-
-$$
-\mathbb P \left(\frac{|\hat \lambda_n - \lambda |}{\max \left( \hat \lambda_n ; \lambda  \right)} \le \frac{q_{1 - \frac{\alpha}{2}}}{\max \left( \hat \lambda_n ; \lambda \right)} \frac{\hat \lambda_n / \sqrt{\frac{1}{n} \sum_{i = 1}^n \delta_i}}{\sqrt{n}} \right) \approx 0.95.
-$$
-
-Or $\sup_{t \ge 0} | \hat S_n(t) - S(t) | \le \frac{\hat \lambda_n - \lambda}{\max(\lambda; \hat \lambda_n)}$, donc
-
-$$
-\mathbb P \left(
-\frac{|\hat \lambda_n - \lambda |}{\max \left( \hat \lambda_n ; \lambda  \right)} 
-\le
-\frac{q_{1 - \frac{\alpha}{2}}}{\max \left( \hat \lambda_n ; \lambda \right)} .\frac{\hat \lambda_n / \sqrt{\frac{1}{n} \sum_{i = 1}^n \delta_i}}{\sqrt{n}}
-\right)
-\le
-\mathbb P \left(
-\sup_{t \ge 0} |\hat S_n (t) - S(t) |
-\le 
-\frac{q_{1 - \frac{\alpha}{2}}}{\max \left( \hat \lambda_n ; \lambda \right)} .
-\frac{\hat \lambda_n / \sqrt{\frac{1}{n} \sum_{i=1}^n \delta_i}}{\sqrt{n}}
-\right).
-$$
-
-Comme, $\max( \hat \lambda_n ; \lambda) \ge \hat \lambda_n$ on en déduit la bande de confiance à $95 \%$ pour $S(t)$ :
-
-$$
-\left[
-\hat S_n (t) - \frac{1.96}{\sqrt{\sum_{i=1}^n \delta_i}}
-~ ; ~ 
-\hat S_n (t) + \frac{1.96}{\sqrt{\sum_{i=1}^n \delta_i}}
-\right]
-$$
-
-```{r echo=FALSE}
-t <- seq(0, 3, 0.01)
-hat_Sn <- exp(- hat_lambda[n] * t)
-
-# bande_inf <- hat_Sn - (1.96 / sqrt(n)) * (mean(delta))
-# bande_sup <- hat_Sn + (1.96 / sqrt(n)) * (mean(delta))
-
-bande_inf1 <- hat_Sn - (1.96 / sqrt(sum(delta)))
-bande_sup1 <-  hat_Sn + (1.96 / sqrt(sum(delta)))
-```
-
-Nous représentons l'estimateur obtenu et sa bande de confiance.
-
-```{r echo=FALSE, fig.height=4}
-plot(t, hat_Sn, type = "l", col = "red",
-     main = expression(paste(S(t), " et son estimateur ", hat(S)[n](t))),
-     xlab = "t", ylab = "Probabilité de survie", lwd = 2)
-lines(t, exp(-lambda * t), col = "blue", lwd = 2)
-# lines(t, bande_inf, lwd = 2, lty = 2)
-# lines(t, bande_sup, lwd = 2, lty = 2)
-lines(t, bande_inf1, lwd = 2, lty = 2)
-lines(t, bande_sup1, lwd = 2, lty = 2)
-legend(x = "topright",
-       legend = c(expression(hat(S)[n](t)),
-                  expression(S(t)),
-                  "Bandes de confiances"),
-       col = c("red", "blue", "black"), lty = c(1, 1, 2), cex = 0.7)
-```
-
-L'estimateur $\hat S_n (t)$ est très proche de $S(t)$. De plus, il est rassurant de voir que $S$ est bien dans la bande de confiance calculée, cela confirme que l'estimation obtenue est bonne.
-
-Comparons l'estimateur de Kaplan-Meier de la fonction de survie et l'estimateur $\hat S_n (t)$ pour $n = 20, 50, 100, 200$.
-
-```{r echo=FALSE, fig.height=4}
-
-for (m in c(20, 50, 100, 200)) {
-  model <- survfit(Surv(T_i[1:m], delta[1:m]) ~ 1, stype = 1)
-  plot(model, conf.int = FALSE, col = "red", xlim = c(0, 3), lwd = 2,
-       main = substitute(paste(
-         "Comparaison des estimateur de Kaplan-Meier et ", hat(S)[n](t), " pour n = ", m
-         ), list(m = m)),
-       xlab = "t", ylab = "Probabilité de survie")
-  
-  t <- seq(0, 3, 0.01)
-  hat_lambda <- sum(delta[1:m]) / sum(T_i[1:m])
-  hat_Sn <- exp(- hat_lambda * t)
-  
-  lines(t, hat_Sn, type = "l", col = "blue", lwd = 2)
-  
-  lines(t, exp(-lambda * t), lwd = 2, lty = 2)
-  
-  legend(x = "topright", col = c("red", "blue", "black"), lty = c(1, 1, 2),
-         legend = c("Kaplan-Meier", expression(hat(S)[n](t)), "S(t)"),
-         cex = 0.7)
-} 
-
-```
-
-Nous voyons sur les représentations ci-dessus que les estimateurs sont d'autant meilleurs que $n$ est grand. De plus, l'estimateur $\hat S_n(t)$ est de plus en plus proche de l'estimateur de Kaplan-Meier.
-
-Rappelons que ce dernier est construit à partir des évènements observés et des temps auxquels ils sont observés. Il est donc normal qu'il n'y ait pas d'estimation au-delà d'un certain temps $t$, correspondant à la date du dernier évènement observé et que les estimations pour un $t$ élevé soient moins bonnes puisqu'il y a moins d'individus. Nous ne rencontrons pas cette difficulté avec l'estimateur $\hat S_n(t)$, cependant, son calcul nécessite l'estimation de paramètre, ce qui le rend un peu moins facile à obtenir que celui de Kaplan-Meier.
-
-# 2. modèle de Weibull
-
-On s'intéresse maintenant à une variable aléatoire positive qui suit la loi de Weibull $\mathcal W(a, b)$ de densité :
-
-$$
-f(x) = \frac{a}{b} \left( \frac{x}{b} \right) ^{a-1} \exp \left( \left( - \frac{x}{b} \right) ^a \right) ~ , ~ x > 0
-$$
-
-où $a, ~ b >0$ sont les paramètres de forme et d'échelle respectivement.
-
-## 2.1. Estimation des paramètres avec la fonction "`survreg`"
-
-Nous simulons un échantillon $\left( X_i \right)_{i = 1, \dots, n}$ de loi de Weibull $\mathcal W (a, b)$ de paramètres $a=2$, $b=5$ et $n=50$.
-
-```{r echo=FALSE}
-set.seed(89754)
-
-n <- 50
-a <- 2
-b <- 5
-
-X <- rweibull(n, shape = a, scale = b)
-```
-
-On pose $Y = log(X) = \mu + \sigma W$ où $W$ admet pour fonction de répartition $F_W (x) = 1 - e^{-e^x}$.
-
-Exprimons les paramètres $a$ et $b$ en fonction de $\mu$ et $\sigma$.
-
-Tout d'abord,
-
-$$
-\begin{array}{lll}
-\mathbb P(X > x) & = & \mathbb P(Y > \log(x)) \\
-& = & \mathbb P \left( W > \frac{\log(x) - \mu}{\sigma} \right) \\
-& = & 1 - F_W \left( \frac{\log(x) - \mu}{\sigma} \right) \\
-& = & \exp \left( - \exp \left( \frac{\log(x) - \mu}{\sigma} \right) \right) \\
-& = & \exp \left(- \left( \frac{x}{\exp(\mu)} \right)^\frac{1}{\sigma} \right)
-\end{array}
-$$
-
-Or, $\mathbb P(X > x) = exp \left( - \left( \frac{x}{b} \right)^a \right)$. Donc $a = \frac{1}{\sigma}$ et $b = e^{\mu}$.
-
-Nous estimons $\sigma$ et $\mu$ sur l'échantillon simulé avec la fonction `survreg`.
-
-```{r include=FALSE}
-model <- survreg(Surv(X) ~ 1, dist = "weibull")
-summary(model)
-```
-
-Nous obtenons $\hat \mu =$ `r round(model$icoef[1], 3)` et $\hat \sigma =$ `r round(model$scale, 3)`. Nous calculons les intervalles de confiance à $95 \%$ de ces paramètres.
-
-Comme la fonction `survreg` calcule l'écart type de $\log(\hat \sigma)$ nous utilisons la $\delta$-méthode pour obtenir l'écart type de $\hat \sigma$ et calculer son intervalle de confiance avec $g : x \mapsto e^x$.
-
-```{r echo=FALSE}
-# écart-types estimés de mu et sigma
-SE_ms <- deltamethod(~exp(x1), model$icoef[2], model$var[2,2], ses = TRUE)
-# intervalle de confiance à 95% de mu
-IC_mu <- c(model$icoef[1] - sqrt(model$var[1,1]) * 1.96,
-           model$icoef[1] + sqrt(model$var[1,1]) * 1.96)
-# intervalle de confiance à 95% de sigma
-IC_sigma <- c(exp(model$icoef[2]) - SE_ms * 1.96,
-              exp(model$icoef[2]) + SE_ms * 1.96)
-```
-
-Nous obtenons pour $\hat \mu$ l'intervalle de confiance $[$ `r round(IC_mu, 3)` $]$ et pour $\hat \sigma$ $[$ `r round(IC_sigma, 3)` $]$.
-
-Rappelons que $\mu =$ `r round(log(b), 3)` et $\sigma =$ `r round(1/a, 3)`. Bien que les estimations obtenues soient un peu éloignées de la réalité, les vraies valeurs de nos paramètres sont bien dans les intervalles de confiance calculées.
-
-```{r echo=FALSE}
-# a = exp(-log(sigma))
-hat_a <- exp(-model$icoef[2])
-# b = exp(mu)
-hat_b <- exp(model$icoef[1])
-```
-
-Nous en déduisons les estimations de $a$ et $b$ suivantes : $\hat a =$ `r round(hat_a, 3)` et $\hat b =$ `r round(hat_b, 3)`. Les estimations obtenues sont plus ou moins proche de la réalité.
-
-Nous utilisons à nouveau la $\delta$-méthode pour calculer les intervalles de confiance au niveau $95 \%$ de $\hat a$ et $\hat b$. Pour cela, nous posons :
-
-$$
-g : (x_1, x_2) \mapsto g(x_1, x_2) = \left( e^{- x_2}, e^{x_1} \right)
-$$ puisque nous avons obtenus précédemment $\hat \mu$ et $\log (\hat \sigma)$ et que $a = \sigma^{-1}$ et $b = e^\mu$.
-
-```{r echo=FALSE}
-# écart-types estimés de hat_a et hat_b
-SE_ab <- deltamethod(list(~exp(-x2), ~exp(x1)), model$icoef, model$var, ses = TRUE)
-# intervalle de confiance à 95% de a
-IC_a <- c(hat_a - SE_ab[1] * 1.96, hat_a + SE_ab[1] * 1.96)
-# intervalle de confiance à 95% de b
-IC_b <- c(hat_b - SE_ab[2] * 1.96, hat_b + SE_ab[2] * 1.96)
-```
-
-Nous obtenons les intervalles de confiance $[$ `r round(IC_a, 3)` $]$ et $[$ `r round(IC_b, 3)` $]$ et les écart-types `r round(SE_ab[1], 3)` et `r round(SE_ab[2], 3)` pour $\hat a$ et $\hat b$ respectivement. Les intervalles de confiance semblent assez larges, notamment celui de $a$, mais ils contiennent bien les vraies valeurs de nos paramètres.
-
-## 2.2. Estimation des paramètres avec la fonction "`flexsurvreg`"
-
-Nous pouvons également estimer les paramètres $a$ et $b$ avec la fonction `flexsurvreg`, cette fonction renvoie directement les estimations de $a$ et $b$ contrairement à `survreg` qui renvoie les estimations de $\mu$ et $\sigma$.
-
-```{r echo=FALSE}
-model2 <- flexsurvreg(Surv(X) ~ 1, dist = "weibull")
-# model2
-
-df <- data.frame("Estimateurs" = c(2.324, 5.321),
-                 "Ecart type" = c(0.263, 0.340),
-                 "Intervalle de conviance" = c("[1.862; 2.902]", "[4.695; 6.031]"),
-                 row.names = c("a", "b"))
-knitr::kable(df, digits = 3, caption = "Estimations des paramètres du modèle par la fonction flexsurvreg")
-```
-
-Les intervalles de confiance calculés par cette fonction pour les paramètres $\hat a$ et $\hat b$ sont différents de ceux obtenus précédemment, bien que les estimateurs et leur écart-type soient similaires. En effet, les intervalles de confiance obtenus ici sont légèrement décalés par rapport à ceux calculés précédemment, ils contiennent des valeurs un peu plus grandes, et ils sont un peu plus larges.
-
-Comme nous ne savons pas vraiment comment fonctionne la fonction `flexsurvreg` il est difficile de comprendre exactement d'où vient cette différence.
-
-Nous pouvons également représenter la fonction de survie estimée et y superposer l'estimateur de Kaplan-Meier.
-
-```{r echo=FALSE}
-plot(model2, type = "survival", col = "red", est = TRUE, ci = TRUE,
-     xlab = "Temps", ylab = "Probabilité de survie",
-     main = "Estimateurs de la fonction de survie")
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "IC de Kaplan-Meier",
-                 "Modèle Weibull", "IC du modèle de Weibull"),
-       col = c("black", "black", "red", "red"),
-       lty = c(1, 2, 1, 2), lwd = c(1, 1, 2, 1), cex = 0.7)
-
-# model3 <- flexsurvreg(Surv(X) ~ 1, dist = "lnorm")
-# lines(model3, type = "survival", col = "blue", est = TRUE, ci = TRUE)
-```
-
-Nous avons en noir l'estimateur de Kaplan-Meier et en rouge la fonction de survie estimée par `flexsurvreg` et leur intervalle de confiance. Superposer l'estimateur de Kaplan-Meier à celui de la fonction de survie estimée dans le modèle de Weibull permet de comparer graphiquement ces deux estimateurs et de juger la qualité de l'estimation de la fonction de survie dans le modèle. Si cette dernière est éloignée de l'estimateur de Kaplan-Meier, nous pouvons remettre en question la qualité de l'estimateur et de l'ajustement.
-
-Nous voyons ici que l'estimation obtenue dans le modèle de Weibull est plus ou moins proche de l'estimation de Kaplan-Meier, elle ne semble donc pas trop mauvaise. Augmenter la taille de l'échantillon améliorerait sans doute l'estimation.
-
-Nous allons maintenant simuler deux échantillons censurés de taille $n_1=50$ et $n_2 = 100$ suivant la même loi de Weibull $\mathcal W(2, 5)$ avec un taux de censure d'environ $25\%$. Pour cela, nous simulons un échantillon $(C_i)_{1=1, \dots, n}$ selon une loi exponentielle de paramètre $\mu=0.08$.
-
-```{r include=FALSE}
-set.seed(46513)
-
-n1 <- 50 ; n2 <- 100
-a <- 2 ; b <- 5
-
-X1 <- rweibull(n1, shape = a, scale = b)
-X2 <- rweibull(n2, shape = a, scale = b)
-
-C1 <- rexp(n1, rate = 0.08)
-C2 <- rexp(n2, rate = 0.08)
-
-T_i1 <- pmin(X1, C1)
-T_i2 <- pmin(X2, C2)
-
-delta1 <- as.numeric(X1 == T_i1)
-delta2 <- as.numeric(X2 == T_i2)
-
-# proportion de censure observée
-taux_cens1 <- 1 - sum(delta1)/n1
-taux_cens2 <- 1 - sum(delta2)/n2
-taux_cens1 ; taux_cens2
-```
-
-Nous observons alors un taux de censure de `r round(taux_cens1, 3) * 100` $\%$ dans l'échantillon de taille $n_1=50$ et `r round(taux_cens2, 3) * 100` $\%$ dans celui de taille $n_2 = 100$.
-
-Par la fonction `flexsurvreg` nous obtenons les estimations et les intervalles de confiance suivants :
-
-```{r echo=FALSE}
-model3 <- flexsurvreg(Surv(X1) ~ 1, dist = "weibull")
-# model3
-
-model4 <- flexsurvreg(Surv(X2) ~ 1, dist = "weibull")
-# model4
-
-nom <- c("a", "b")
-df1 <- data.frame("Estimation" = c(2.326, 4.683),
-                  "Ecart type" = c(0.273, 0.298) ,
-                  "IC" = c("[1.848, 2.962]", "[4.134, 5.304]"),
-                  row.names = nom)
-tab1 <- knitr::kable(df1, digits = 3, caption = "Estimation des paramètres pour un échantillon de taille n = 50")
-
-df2 <- data.frame("Estimation" = c(2.204, 5.104),
-                  "Ecart type" = c(0.175, 0.244),
-                  "IC" = c("[1.885, 2.576]", "[4.648, 5.605]"),
-                  row.names = nom)
-tab2 <- knitr::kable(df2, digits = 3, caption = "Estimation des paramètres pour un échantillon de taille n = 100")
-
-tab1 ; tab2
-```
-
-Les estimations obtenues sont d'autant plus proches des vraies valeurs des paramètres que la taille de l'échantillon est grande, ce qui était attendu. Remarquons également que les écart-types diminues, par conséquent les intervalles de confiance, qui contiennent tous les deux les vraies valeurs des paramètres, sont plus resserrés autour des vraies valeurs quand la taille de l'échantillon augmente. L'estimation gagne en précision quand $n$ augmente.
-
-Nous pouvons à nouveau représenter graphiquement la fonction de survie estimée dans les modèles.
-
-```{r echo=FALSE, fig.height=4, warning=FALSE}
-plot(model3, type = "survival", col = "red", est = TRUE, ci = TRUE,
-     xlab = "Temps", ylab = "Probabilité de survie",
-     main = "Estimateur de la fonction de survie dans le modèle de Weibull \n (n=50)")
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "IC de Kaplan-Meier",
-                 "Modèle de Weibull", "IC du modèle de Weibull"),
-       col = c("black", "black", "red", "red"),
-       lty = c(1, 2, 1, 2), lwd = c(1, 1, 2, 1), cex = 0.7)
-
-plot(model4, type = "survival", col = "red", est = TRUE, ci = TRUE,
-     xlab = "Temps", ylab = "Probabilité de survie",
-     main = "Estimateur de la fonction de survie dans le modèle de Weibull \n (n=100)")
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "IC de Kaplan-Meier",
-                 "Modèle Weibull", "IC du modèle de Weibull"),
-       col = c("black", "black", "red", "red"),
-       lty = c(1, 2, 1, 2), lwd = c(1, 1, 2, 1), cex = 0.7)
-```
-
-Comme nous nous y attendions, l'estimation de la fonction de survie s'améliore quand $n$ augmente. En effet, la fonction estimée dans le modèle de Weibull pour un échantillon de taille $n=100$ est plus proche de l'estimateur de Kaplan-Meier. Notons tout de même que l'estimateur de Kaplan-Meier s'améliore également quand $n$ augmente.
-
-# 3. Autres modèles paramétriques
-
-Nous reprenons le graphique précédent et nous y ajoutons un estimateur de la fonction de survie pour une loi log-normale de $X$.
-
-```{r echo=FALSE, fig.height=4}
-model5 <- flexsurvreg(Surv(X2) ~ 1, dist = "lnorm")
-
-plot(model4, type = "survival", col = "red", est = TRUE, ci = TRUE,
-     xlab = "Temps", ylab = "Probabilité de survie",
-     main = "Estimateurs de la fonction de survie")
-lines(model5, type = "survival", col = "green", est = TRUE, ci = TRUE)
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "IC de Kaplan-Meier",
-                 "Modèle ", "IC du modèle de Weibull",
-                 "Modèle log-normale", "IC du modèle log-normale"),
-       col = c("black", "black", "red", "red", "green", "green"),
-       lty = c(1, 2, 1, 2, 1, 2), lwd = c(1, 1, 2, 1, 2, 1), cex = 0.7)
-```
-
-L'estimateur obtenu dans le modèle log-normale en vert est assez différent de celui obtenu pour la loi de Weibull et de l'estimateur de Kaplan-Meier. Les données ayant été simulées selon une loi de Weibull, il est normal que la fonction de survie estimée pour une loi log-normale soit moins bonne. C'est bien ce que nous observons ici. Le choix de la loi influe évidemment beaucoup la qualité de l'estimation.
-
-# 4. Ajout d'une covariable
-
-Nous nous intéressons maintenant à un modèle de régression avec une covariable $Z$ :
-
-$$
-Y = \log (X) = \mu + \gamma Z + \sigma W
-$$
-
-## 4.1. Simulation et estimation des paramètres
-
-Nous commençons par générer des variables $\left( W_i \right)_{i = 1, \dots, n}$ de fonction de répartition $F_W(x) = 1 - e^{-e^x}$, $x \in \mathbb R$ pour $n \in \{100 ~,~ 200 ~,~ 500\}$.
-
-Pour cela, rappelons que si les variables aléatoire $\left( U_i \right)_{i = 1, \dots, n}$ suivent une loi uniforme sur $\left[ 0 ~; 1 \right]$ alors les variables $\left( F_W^{-1}(U_i) \right)_{i = 1, \dots, n}$ suivent une loi de fonction de répartition $F_W$. De plus, $F^{-1}_W (x) = \log \left(-\log(1-x) \right)$.
-
-Ensuite, nous générons les variables $\left( X_i \right)_{i = 1, \dots, n}$ selon le modèle de régression log-linéaire avec $\mu = 2$, $\gamma = 3$ et $\sigma = 0.5$ pour une covariable binaire $Z$ telle que $Z_i = 0$ pour $i = 1, \dots, n/2$ et $Z_i = 1$ pour $i = n/2 + 1, \dots, n$.
-
-Enfin nous générons un échantillon censuré avec l'échantillon $\left( C_i \right)_{i = 1, \dots, n}$ généré selon une loi exponentielle de paramètre $\lambda \in \{0.01 ~,~ 0.003 \}$.
-
-```{r, include=FALSE, results='hide'}
-simu <- function(n, mu, gamma, sigma, lambda) {
-  W <- log(-log(runif(n, 0, 1)))
-  Z <- rep(c(0, 1), each = n/2)
-  
-  X <- exp(mu + gamma * Z + sigma * W)
-  C <- rexp(n, rate = lambda)
-  
-  T_i <- pmin(X, C)
-  delta <- as.numeric(X == T_i)
-  
-  taux_cens <- 1 - mean(delta)
-  print(taux_cens)
-  
-  return(list("Censure" = taux_cens, "data" = data.frame(T_i, delta, Z)))
+# Nombre dans un intervalle
+entre <- function (x, lower, upper, lower.inc = TRUE, upper.inc = TRUE) {
+  # bornes incluses
+  if (lower.inc & upper.inc & x <= upper & x >= lower) {
+    return(TRUE)
+  } else {
+      return(FALSE)
+  } 
+  # bornes exclues
+  if (!lower.inc & !upper.inc & x < upper & x > lower) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+  # borne inf exclu
+  if (!lower.inc & upper.inc & x <= upper & x > lower) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+  # born sup exclu
+  if (lower.inc & !upper.inc & x < upper & x >= lower) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  } 
 }
 
-n <- c(100, 200, 500) ; lambda <- c(0.01, 0.003)
-mu <- 2 ; gamma <- 3 ; sigma <- 0.5
-
-set.seed(9845)
-# n = 100 et lambda = 0.01
-sim1 <- simu(n[1], mu, gamma, sigma, lambda[1])
-# n = 100 et lambda = 0.003
-sim2 <- simu(n[1], mu, gamma, sigma, lambda[2])
-# n = 200 et lambda = 0.01
-sim3 <- simu(n[2], mu, gamma, sigma, lambda[1])
-# n = 200 et lambda = 0.003
-sim4 <- simu(n[2], mu, gamma, sigma, lambda[2])
-# n = 500 et lambda = 0.01
-sim5 <- simu(n[3], mu, gamma, sigma, lambda[1])
-# n = 500 et lambda = 0.003
-sim6 <- simu(n[3], mu, gamma, sigma, lambda[2])
 ```
 
-Nous générons en tout $6$ modèles différents, et nous estimons pour chacun les paramètres $\mu$, $\gamma$ et $\sigma$ par la fonction `survreg`.
+# Préliminaires
+
+## Librairies
+
+Chargeons les librairies nécessaires.
+
+```{r package, message=FALSE}
+library(asaur) ; library(survival) ; library(km.ci) ; library(survminer)
+```
+
+## Exploration du jeu de données
+
+Nous travaillions avec le jeu de données `pharmacoSmoking`.
+
+```{r data, echo=FALSE}
+data(pharmacoSmoking)
+dt <- pharmacoSmoking
+```
+
+```{r data_tab, echo=FALSE}
+knitr::kable(head(dt[, 1:10]),
+             caption = "Extrait du jeu de données \"pharmacoSmoking\"",
+             align = "l")
+```
+
+Ce jeu de données contient 125 observations sur 14 variables décrivant les participants et les résultats d'un essai clinique. Ce dernier avait pour but d'étudier l'effet d'une combinaison de trois traitements contre le patch nicotinique seul sur la durée de sevrage du tabac (en jours) chez des fumeurs souffrant de problèmes médicaux.
+
+```{r taux_censure, include=FALSE}
+tc <- ((125 - sum(dt$relapse)) / 125) * 100
+```
+
+La variable de durée d'intérêt dans le jeu de données est donc `ttr`, la durée d'abstinence en jours. Le suivi des participants a duré 26 semaines (182 jours), et il semblerait qu'aucun participant n'ai été perdu de vue avant la fin de l'essai. Par conséquent, les données présentent une censure droite fixe et le taux de censure est `r tc`$\%$.
+
+La variable `relapse` indique si le participant a rechuté, elle prend la valeur $1$ si oui, et $0$ si non.
+
+En dehors de ces deux variables et de `id` (l'identifiant des participants) il y a $11$ covariables :
+
+-   `grp` : les groupes de traitement assignés aléatoirement aux participants (variable qualitative à $2$ modalités : "combination" et "patchOnly")
+-   `age` : l'âge au moment de l'assignation des groupes (variable quantitative)
+-   `gender` : le genre des participants (variable qualitative à deux modalités : "Female" et "Male")
+-   `race` : la "race" des participants (variable qualitative à $4$ modalités : "black", "hispanic", "white" et "other")
+-   `employment` : la situation de travail (variable qualitative à $3$ modalités : "ft" (plein temps), "pt" (mi-temps) et "other" (autre))
+-   `yearsSmoking` : le nombre d'années de tabagisme (variable quantitative)
+-   `levelSmoking` : l'intensité du tabagisme (variable qualitative à $2$ modalités : "heavy" (lourd) et "light" (léger))
+-   `ageGroup2` : le groupe d'âge des participants (variable qualitative à $2$ modalités "21-49", "50+")
+-   `ageGroup4` : le groupe d'âge (variable qualitative à $4$ modalités : "21-34", "35-49", "50-64" et "65+")
+-   `priorAttempts` : le nombre de tentatives pour arrêter de fumer (variable quantitative)
+-   `longestNoSmoke` : la plus longue période (en jour) sans fumer (variable quantitative)
+
+# Analyse
+
+Commençons par mettre les données dans le format requis pour l'utilisation de fonctions `R` pour l'analyse de survie.
+
+```{r transfo_data}
+dt1 <- with(dt, Surv(ttr, relapse))
+dt1
+```
+
+Dans la suite nous essayons de déterminer les facteurs favorisants ou non le sevrage tabagique.
+
+Pour cela, nous comparons différents groupes de participants, définis par différentes covariables.
+
+## 1. Groupes par traitement
+
+Nous commençons par les groupes les plus intuitifs, ceux définis par le traitement. Si le traitement est efficace nous nous attendons à ce que la probabilité de survie dans le groupe ayant reçu la combinaison soit plus élevée.
+
+Nous utilisons l'estimateur de Kaplan-Meier de la fonction de survie et nous calculons les bandes de confiance des estimateurs par la méthode de Hall-Wellner qui fournit des résultats plutôt bons pour les petits échantillons ($<200$ observations) selon Klein & Moeshberger (2005). Les intervalles de confiances ponctuels sont obtenus par une transformation "log".
+
+```{r fit1, warning=FALSE}
+fit1 <- survfit(dt1 ~ grp, data = pharmacoSmoking, conf.type = "log")
+```
+
+```{r fit1_graph1, echo=FALSE}
+
+plot_graph(fit = fit1, band.conf = TRUE,
+           covar = dt$grp, grp = c("combination", "patchOnly"),
+           title = "Fonctions de survie et bandes de confiance",
+           col = c("red", "blue"), legend = c("combination", "patchOnly"))
+```
+
+Nous constatons graphiquement que les probabilités de survie semblent plus élevées dans le groupe ayant reçu une combinaison de traitement. Cependant, nous observons également un chevauchement important des bandes de confiance. Le graphique seul n'est pas suffisant pour conclure à une différence des survies dans les groupes.
+
+Nous pouvons également représenter les intervalles de confiance ponctuels et les médianes de survie des fonctions.
+
+```{r fit1_graph2, echo=FALSE}
+gg_graph(fit1,
+         conf.int = TRUE,
+         col = c("red", "blue"),
+         legend = list("combination", "patchOnly"),
+         title = "Fonctions de survie et intervalles de confiance")
+```
+
+La probabilité de survie passe sous la barre des $50\%$ beaucoup plus tôt dans le groupe "patchOnly" que dans le groupe "combination". Les intervalles de confiance étant ponctuelles nous ne pouvons pas vraiment interpréter les différents chevauchement observés.
+
+Nous allons effectuer un test *log-rank* pour tester l'égalité des survies dans les deux groupes de traitement.
+
+```{r test1}
+test1 <- survdiff(dt1 ~ grp, data = dt, rho = 0)
+test1
+```
+
+```{r risk1, include=FALSE}
+risk1 <- risk(test1)
+risk1
+```
+
+La p-valeur du test vaut `r round(test1$pvalue, 3)`, nous rejetons l'hypothèse d'égalité des survies dans les deux groupes. La rechute à plus de chance de se produire dans le groupe ayant reçu uniquement un patch nicotinique. Nous pouvons estimer le rapport des risques instantanés de rechute dans les deux groupes et nous trouvons qu'un individu du groupe "patchOnly" à `r round(risk1,2)`% de chance en plus de rechuter qu'un individu du groupe "combination". La combinaison de traitements semble donc favoriser le sevrage tabagique.
+
+## 2. Groupes par intensité du tabagisme
+
+Nous allons maintenant comparer les groupes définis par l'intensité du tabagisme, les participants sont donc divisés en $2$ groupes : tabagisme léger (light) et tabagisme lourd (heavy).
+
+```{r fit2, echo=FALSE}
+fit2 <- survfit(dt1 ~ levelSmoking, data = dt)
+# summary(fit2)
+
+plot_graph(fit = fit2,
+           band.conf = TRUE,
+           covar = dt$levelSmoking,
+           grp = c("heavy", "light"),
+           title = "Fonctions de survie et bandes de confiance des groupes",
+           col = c("red", "blue"),
+           legend = c("heavy", "light"))
+
+gg_graph(fit2,
+         conf.int = TRUE,
+         col = c("red", "blue"),
+         legend = list("heavy", "light"),
+         title = "Fonctions de survies et intervalles de confiance")
+```
+
+Les deux courbes de survies sont très proches sur toute la durée du suivie et la bande de confiance du groupe "heavy" est incluse dans celle du groupe "light". Nous nous attendons à ce que le test ne détecte pas de différence entre les survies dans les deux groupes.
+
+```{r test2}
+test2 <- survdiff(dt1 ~ levelSmoking, data = dt, rho = 0)
+test2
+```
+
+La p-valeur du test *log-rank* vaut `r round(test2$pvalue, 1)`, ce qui ne nous permet pas de rejeter l'hypothèse d'égalité des survies dans les deux groupes. L'intensité du tabagisme seule ne semble pas impacter le sevrage.
 
 ```{r include=FALSE}
-fit1 <- survreg(Surv(T_i, delta) ~ Z, data = sim1$data, dist = "weibull")
-fit2 <- survreg(Surv(T_i, delta) ~ Z, data = sim2$data, dist = "weibull")
-fit3 <- survreg(Surv(T_i, delta) ~ Z, data = sim3$data, dist = "weibull")
-fit4 <- survreg(Surv(T_i, delta) ~ Z, data = sim4$data, dist = "weibull")
-fit5 <- survreg(Surv(T_i, delta) ~ Z, data = sim5$data, dist = "weibull")
-fit6 <- survreg(Surv(T_i, delta) ~ Z, data = sim6$data, dist = "weibull")
-
-summary(fit1) ; summary(fit2) ; summary(fit3) ; summary(fit4) ; summary(fit5) ; summary(fit6)
+survdiff(dt1 ~ gender, data = dt, rho = 1)
+survdiff(dt1 ~ race, data = dt, rho = 1)
+survdiff(dt1 ~ employment, data = dt, rho = 1)
 ```
 
-Nous obtenons les estimations suivantes :
+De la même façon, nous ne pouvons pas rejeter l'hypothèse d'égalité des survies pour les groupes définis par les covariables `genre`, `race` et `employment`.
+
+## 3. Groupes par âge
+
+### a) 2 groupes d'âge
+
+Nous allons maintenant comparer les groupes définis par la covariable `ageGroup2` qui divise les participants en $2$ groupes d'âge, les $21$-$49$ ans et les $50$ ans et plus.
+
+Les courbes de survies par groupes sont représentées ci-dessous.
+
+```{r fit3, echo=FALSE}
+fit3 <- survfit(dt1 ~ ageGroup2, data = dt)
+# summary(fit3)
+
+plot_graph(fit = fit3, band.conf = TRUE, covar = dt$ageGroup2,
+           grp = c("21-49", "50+"),
+           title = "Fonctions de survie et bandes de confiance",
+           col = c("red", "blue"), legend = c("21-49 ans", "50 ans et plus"))
+
+gg_graph(fit = fit3, conf.int = TRUE, col = c("red", "blue"),
+         legend = c("21-49 ans", "50 ans et plus"),
+         title = "Fonctions de survie et intervalles de confaince")
+```
+
+Bien que la probabilité de survie estimée soit plus importante dans le groupe des $50$ ans et plus, les bandent de confiances des courbes se chevauchent, particulièrement au début du suivi.
+
+Les fonctions de survies étant assez proches au début du suivi, pour mieux détecter une éventuelle différence entre les survies nous réalisons un test de Wilcoxon. Ce dernier met plus de poids sur les évènements précoces, donc il rejettera moins facilement l'hypothèse d'égalité des survies entre les groupes si ces dernières sont très similaires au début.
+
+```{r test3}
+test3 <- survdiff(dt1 ~ ageGroup2, rho = 1, data = dt)
+test3
+```
+
+```{r risk3, include=FALSE}
+risk3 <- risk(test = test3)
+risk3
+```
+
+La p-valeur du test vaut `r round(test3$pvalue, 3)` donc nous rejetons l'hypothèse d'égalité des survies entre les groupes. L'âge impact le sevrage tabagique, et il semblerait que les participants de $50$ ans et plus sont moins propices à recommencer à fumer. Les membres du groupe des $21$-$49$ ans ont `r round(risk3, 2)`% de chance en plus de rechuter que ceux du groupe des $50$ ans et plus.
+
+### b) 4 groupes d'âge
+
+Nous procédons de la même façon pour la covariable `ageGroup4` qui définie $4$ groupes d'âge. Comme il y a beaucoup de groupes, représenter les intervalles ou les bandes de confiance rendent les graphiques illisibles, nous ne les représenterons donc pas pour ces groupes.
+
+```{r fit4, echo=FALSE}
+fit4 <- survfit(dt1 ~ ageGroup4, data = dt)
+# summary(fit3)
+
+gg_graph(fit = fit4, conf.int = FALSE, col = c("red", "blue", "green", "magenta"),
+         legend = list("21-34 ans", "35-49 ans", "50-64 ans", "65 ans et plus"),
+         title = "Fonctions de survie")
+```
+
+Les probabilités de survie des groupes semblent assez proches au début du suivi puis celles du groupe des $50$-$64$ ans se détache des autres, elles sont plus élevées.
+
+Nous effectuons un test de Wilcoxon pour détecter une différence entre les groupes.
+
+```{r test4}
+test4 <- survdiff(dt1 ~ ageGroup4, rho = 1, data = dt)
+test4
+```
+
+Avec un p-valeur de `r round(test4$pvalue, 2)`, nous rejetons l'hypothèse d'égalité des survies entre les groupes. Nous avons vu graphiquement que le groupe des $50$-$64$ ans se démarquait particulièrement des autres et nous retrouvons ce résultat en observant la dernier colonne du tableau : `(O-E)^2/V`. C'est bien ce groupe qui a le plus contribué à la statistique de test.
+
+Juste avant nous avions conclu que les personnes de $50$ ans et plus avaient moins de chance de rechuter, nous pouvons maintenant être plus précis et dire que la probabilité de survie est plus importante chez les personnes entre $50$ et $64$ ans. La probabilité de rechute passe sous la barre des $50\%$ très tard par rapport aux autres groupes, au bout d'un peu plus de $100$ jours contre moins de $25$ pour le groupe des $35$-$49$ ans par exemple.
+
+## 4. Groupes définis par des variables quantitatives
+
+Il peut être intéressant de voir s'il existe une différence entre les groupes définis par le nombre de tentatives de sevrage ou la plus longue durée de sevrage. Comme les variables `priorAttempts` et `longestNoSmoke` il faut tout d'abord créer des classes. Pour éviter d'avoir des classes avec trop peu d'observations ou avec un nombre d'observation trop inégal nous nous basons sur les quantiles des deux variables. Nous obtenons alors les groupes suivants :
+
+```{r classes, echo=FALSE}
+
+d1 <- data.frame(priorAttempts = c("0-1", "2", "3-5", "6 et plus"),
+             Effectifs = c(sum(sapply(dt$priorAttempts, entre, lower=0, upper=1)),
+                            sum(sapply(dt$priorAttempts, entre, lower=2, upper=2)),
+                            sum(sapply(dt$priorAttempts, entre, lower=3, upper=5)),
+                            sum(dt$priorAttempts >= 6)))
+d2 <- data.frame(longestNoSmoke = c("0-7", "8-90", "91-365", "366 et plus"),
+             Effectifs = c(sum(sapply(dt$longestNoSmoke, entre, lower=0, upper=7)),
+                            sum(sapply(dt$longestNoSmoke, entre, lower=8, upper=90)),
+                            sum(sapply(dt$longestNoSmoke, entre, lower=91, upper=365)),
+                            sum(dt$longestNoSmoke >= 366)))
+knitr::kable(list(d1, d2), align = "r",
+  caption = "Groupes formés à partir des variables priorAttempts et longestNoSmoke"
+)
+```
+
+Nous estimons comme précédemment les fonctions de survies des différents groupes.
 
 ```{r echo=FALSE}
-nom <- c("$\\mu$", "$\\gamma$", "$\\sigma$",
-         "SE($\\mu$)", "SE($\\gamma$)", "SE($\\sigma$)")
+# Ajout de la variable de classe longestNoSmoke2
+for (i in 1:125) {
+  if (dt$longestNoSmoke[i] <=7) {dt$longestNoSmoke2[i] <- "semaine"}
+  if (entre(dt$longestNoSmoke[i], lower = 8, upper = 90)) {
+    dt$longestNoSmoke2[i] <- "3mois"}  
+  if (entre(dt$longestNoSmoke[i], lower = 91, upper = 365)) {
+    dt$longestNoSmoke2[i] <- "1an"}
+  if (dt$longestNoSmoke[i] >= 366) {dt$longestNoSmoke2[i] <- "1an+"}
+}
 
-SE_sig <- c(deltamethod(~exp(x1), log(fit1$scale), fit1$var[3,3]),
-            deltamethod(~exp(x1), log(fit2$scale), fit2$var[3,3]),
-            deltamethod(~exp(x1), log(fit3$scale), fit3$var[3,3]),
-            deltamethod(~exp(x1), log(fit4$scale), fit4$var[3,3]),
-            deltamethod(~exp(x1), log(fit5$scale), fit5$var[3,3]),
-            deltamethod(~exp(x1), log(fit6$scale), fit6$var[3,3]))
+# Représentation graphique
+gg_graph(fit = survfit(dt1 ~ longestNoSmoke2, data = dt), conf.int = FALSE,
+         col = c("red", "blue", "green", "magenta"),
+         legend = c("7 jours ou moins", "8-90 jours",
+                    "91-365 jours", "366 jours ou plus"),
+         title = "Fonctions de survie par groupe pour longestNoSmoke")
 
-est1 <- data.frame(
-  "n = 100" = c(fit1$coefficients, fit1$scale, c(sqrt(diag(fit1$var))[1:2], SE_sig[1])),
-  "n = 200" = c(fit3$coefficients, fit3$scale, c(sqrt(diag(fit3$var))[1:2], SE_sig[3])),
-  "n = 500" = c(fit5$coefficients, fit5$scale, c(sqrt(diag(fit5$var))[1:2], SE_sig[5])),
-  row.names = nom)
+# Ajout de la variable de classe priorAttempts2
+for (i in 1:125) {
+  if (dt$priorAttempts[i] <= 1) {dt$priorAttempts2[i] <- "1"}
+  if (dt$priorAttempts[i] == 2) {dt$priorAttempts2[i] <- "2"}  
+  if (entre(dt$priorAttempts[i], lower = 3, upper = 5)) {dt$priorAttempts2[i] <- "3"}
+  if (dt$priorAttempts[i] >= 6) {dt$priorAttempts2[i] <- "4"}
+}
 
-est2 <- data.frame(
-  "n = 100" = c(fit2$coefficients, fit2$scale, c(sqrt(diag(fit2$var))[1:2], SE_sig[2])),
-  "n = 200" = c(fit4$coefficients, fit4$scale, c(sqrt(diag(fit4$var))[1:2], SE_sig[4])),
-  "n = 500" = c(fit6$coefficients, fit6$scale, c(sqrt(diag(fit6$var))[1:2], SE_sig[6])),
-  row.names = nom)
-
-tab1 <- knitr::kable(est1, digits = 3, caption = "Estimateurs quand $\\lambda$ = 0.01",
-                     col.names = c("n = 100", "n = 200", "n = 500"))
-tab2 <- knitr::kable(est2, digits = 3, caption = "Estimateurs quand $\\lambda$ = 0.003",
-                     col.names = c("n = 100", "n = 200", "n = 500"))
-
-tab1 ; tab2
+# Représentation graphique
+gg_graph(fit = survfit(dt1 ~ priorAttempts2, data = dt), conf.int = FALSE,
+         col = c("red", "blue", "green", "magenta"),
+         legend = c("1 ou moins", "2",
+                    "3-5", "6 ou plus"),
+         title = "Fonctions de survie par groupe pour priorAttempts")
 ```
 
-Les coefficients estimés sont dans l'ensemble assez proches des vraies valeurs. De plus, leur écart-type diminue quand la taille de l'échantillon augmente ou quand le taux de censure diminue. Ainsi, les estimateurs sont sensibles à la taille de l'échantillon, ce qui était attendu, et au niveau de censure. Un échantillon dont on aura observé un maximum d'évènements permettra une estimation plus précise des paramètres du modèle.
+Nous voyons graphiquement que les survies dans les groupes de la variable `priorAttempts` sont assez proche. Les survies dans les groupes de la variable `longestNoSmoke` semblent se distinguer un peu plus. Nous testons l'égalité des survies par des tests *log-rank* pour les deux variables.
 
-## 4.2. Examen des résidus de Cox-Snell
+```{r test5-6, echo=FALSE}
+test5 <- survdiff(dt1 ~ longestNoSmoke2, data = dt, rho = 0)
+test6 <- survdiff(dt1 ~ priorAttempts2, data = dt, rho = 0)
 
-Nous reprenons l'échantillon généré précédemment avec $n = 500$ et $\mu = 0.003$.
-
-Déterminons les résidus de Cox-Snell $\left( R_i \right)_{i = 1, \dots, n}$ associés à l'hypothèse du modèle de Weibull où $R_i = \hat H_{\hat \mu, \hat \gamma, \hat \sigma} (T_i | Z_i)$.
-
-Rappelons que $H$ est la fonction de risque instantané et
-
-$$
-H_{\mu, \gamma, \sigma} \left( T_i | Z_i \right) = 
-- \log \left( S(T_i|Z_i) \right)
-$$
-
-où $S$ est la fonction de survie du modèle.
-
-Or, pour le modèle de Weibull, la survie est donnée par :
-
-$$
-S(T| Z) = e^{-\lambda T^\alpha}
-$$
-
-avec $\alpha = \frac{1}{\sigma}$ et $\lambda = e^{- \frac{\mu + \gamma^t Z}{\sigma}}$.
-
-Donc,
-
-$$
-\begin{array}{ccc}
-H_{\mu, \gamma, \sigma} (T | Z) & = & -\log \left( e^{-\lambda T^\alpha} \right) \\
-& = & \lambda T^\alpha \\
-& = & \left( e^{- \left( \mu + \gamma^t Z \right)} T \right) ^ {1/\sigma}
-\end{array}
-$$
-
-Par conséquent,
-
-$$
-R_i = \left( e^{- \left( \hat \mu + \hat \gamma^t Z_i \right)} T_i \right) ^ {1 / \hat \sigma}
-$$
-
-Représentons graphiquement l'estimateur de Nelson-Aalen de la fonction de risque cumulé de l'échantillon censuré $(R_i, \delta_i)$ pour chaque groupe.
-
-```{r echo=FALSE, fig.height=4, warning=FALSE}
-R <- (exp(-(fit6$coefficients[1] + fit6$coefficients[2] * sim6$data$Z)) *
-        sim6$data$T_i)^(1/fit6$scale)
-
-plot(survfit(Surv(R, delta) ~ Z, data = sim6$data, ctype = 1), fun = "cumhaz",
-     xlab = "Temps", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , "
-       , delta[i], ")"))
-     )
-abline(a = 0, b = 1, col = "red")
+test5 ; test6
 ```
 
-Nous avons superposé en rouge la droite d'équation $y=x$ qui correspond au risque cumulé d'une loi exponentielle de paramètre $1$.
+Pour la variable `longestNoSmoke` la p-valeur vaut `r round(test5$pvalue, 1)` et `r round(test6$pvalue, 1)` pour la variable `priorAttempts`. Nous ne pouvons pas rejeter l'égalité des survies. Il semblerait que le nombre de tentatives et la plus longue durée de sevrage n'aient pas d'impact significatif.
 
-Si la fonction $H$ est la fonction de risque cumulé des $T_i$ alors les $\left( R_i \right)_{i = 1, \dots, n}$ forment un échantillon censuré de loi exponentielle de paramètre $1$. Or, la fonction de risque cumulé d'un tel échantillon est la fonction $x \mapsto x$. Nous allons donc comparer l'estimateur de Nelson-Aalen à la droite d'équation $y = x$, s'il est très différent de la droite nous pouvons rejeter l'adéquation du modèle de Weibull.
+# Conclusion
 
-Ici, les estimateurs de $H$ obtenus sont très proches de la droite d'équation $y = x$ et très proches entre eux, il semblerait que les $(R_i)_{i = 1, \dots, n}$ forment bien un échantillon censuré de loi exponentielle de paramètre $1$. Le modèle ajusté semble correct quelque soit le groupe. Ainsi, le modèle de Weibull est adéquat pour modéliser nos données. Ce qui est cohérent puisque nos données ont été simulées de façon à suivre une loi de Weibull.
+Les différentes comparaisons ont mis en évidence quelques facteurs qui influent significativement le sevrage tabagique, à savoir l'âge et le traitement. La combinaison des $3$ traitement est donc plus efficace pour le sevrage tabagique que le patch nicotinique seul. Cette conclusion rejoint celle faite à l'issue de l'essai clinique dont sont issues les données.
 
-# 5. Application au jeu de données réelles "alloauto"
+L'autre facteur identifié est l'âge, nous avons identifié que le sevrage tabagique était plus efficace chez une certaine tranche d'âge, les $50$-$64$ ans.
 
-```{r include=FALSE}
-library(KMsurv)
+Si, pour finir, nous comparons les groupes définis par le traitement (variable `grp`) et l'âge (variable `ageGroup4`) nous constatons que le groupe se démarquant le plus des autres est celui des $50$-$64$ ans ayant reçu la combinaison de traitements. Les probabilités de survie dans ce groupe sont globalement plus élevées que dans les autres, notons qu'elles sont toujours supérieur à $0.5$. Cette combinaison de facteur favorise particulièrement le sevrage tabagique.
 
-data("alloauto")
-
-str(alloauto)
-head(alloauto)
-```
-
-Nous travaillerons avec le jeu de données "alloauto" qui est constitué d'un échantillon de $101$ patients atteints de leucémie myéloïde aiguë, un cancer qui affecte les cellules hématopoïétiques de la moelle osseuse. $51$ de ces patients ont reçu une greffe de moelle osseuse autologue (auto) et $50$ une greffe de moelle osseuse allogénique (allo). Dans le premier cas ce sont les cellules souches du patient qui sont utilisées et dans le second celle d'un donneur étant un proche génétique. Le but de l'étude était de comparer l'efficacité de ces deux méthodes en mesurant la durée de survie d'un patient et combien de temps il reste sain après la greffe.
-
-La variable d'intérêt est donc `time`, la durée de survie en mois. La variable `type` indique le type de greffe ($1$ pour allogénique et $2$ pour autologue) et `delta` indique s'il y a eu censure à droite ($0$ pour une donnée censurée et $1$ sinon).
-
-Les données présentes `r round(mean(alloauto$delta), 3) * 100` $\%$ de censure.
-
-## Comparaison des courbes de survie par groupe
-
-Commençons par comparer les courbes de survie des groupes définis par le type de greffe.
-
-```{r echo=FALSE}
-# estimateur de Kaplan-Meier
-fit_grp <- survfit(Surv(time, delta) ~ type, data = alloauto, stype = 1)
-# summary(fit_grp)
-
+```{r test7, echo=FALSE}
 ggsurvplot(
-  fit_grp,
-  data = alloauto,
-  conf.int = TRUE,
-  surv.median.line = "hv",
-  palette = c("blueviolet", "coral"),
-  ggtheme = theme_light() %+replace% theme(plot.title=element_text(hjust=0.5)),
-  legend.labs = list("allogénique", "autologue"),
-  legend.title = "Type de greffe",
-  xlab = "Temps", ylab = "Probabilité de survie",
-  title = "Courbes de survie",
-  font.title = "bold",
-  pval = TRUE
+    fit = survfit(dt1 ~ grp + ageGroup4, data = dt), data = dt,
+    conf.int = FALSE,
+    pval = FALSE,
+    surv.median.line = "hv",
+    ggtheme = theme_light() %+replace% theme(plot.title=element_text(hjust=0.5)),
+    legend.labs = c("combination, 21-34", "combiation, 35-49",
+                    "combination, 50-64", "combination, 65+",
+                    "patchOnly, 21-34", "patchOnly, 35-49",
+                    "patchOnly, 50-64", "patchOnly, 65+"),
+    legend.title = "Groupes :", title = "Fonctions de survies",
+    font.title = "bold",
+    xlab = "Jours", ylab = "Probabilité de survie"
 )
-```
 
-La représentation graphique des courbes de survies laisse supposer qu'elles sont assez proches d'un groupe à l'autre, bien que la probabilité de survie dans le groupe "allo" semble légèrement plus élevée. Nous observons de nombreuses intersections des intervalles de confiance ponctuels. Les estimations pour $t$ supérieur à environ $20$ ne sont pas très bonnes, en effet il y a à partir de ce temps peu d'individus et beaucoup de censure.
-
-La p-valeur affichée correspond à la p-valeur du test du *log-rank*, utilisé pour tester l'égalité des courbes de survie. Cette dernière étant supérieure à $0.05$, nous ne pouvons pas rejeter l'hypothèse d'égalité des courbes de survie. La probabilité de survie au temps $t$ serait la même dans les deux groupes.
-
-## Ajustement de modèles de régression
-
-Nous allons maintenant ajuster plusieurs modèles de régression de type
-
-$$
-\ln(X) = \mu + \gamma^t Z + \sigma W
-$$
-
-où $Z$ est la variable `type` et $X$ la variable `time`, avec des hypothèses de loi de Weibull, log-logistique et log-normale pour $W$.
-
-```{r include=FALSE}
-fit_w <- survreg(Surv(time, delta) ~ type, data = alloauto, dist = "weibull")
-fit_ll <- survreg(Surv(time, delta) ~ type, data = alloauto, dist = "loglogistic")
-fit_ln <- survreg(Surv(time, delta) ~ type, data = alloauto, dist = "lognormal")
-```
-
-Nous obtenons les estimations et les AIC suivants :
-
-```{r echo=FALSE}
-df <- data.frame("Weibull" = c(fit_w$coefficients, fit_w$scale, AIC(fit_w)),
-                 "LogLogistique" = c(fit_ll$coefficients, fit_ll$scale, AIC(fit_ll)),
-                 "LogNormale"= c(fit_ln$coefficients, fit_ln$scale, AIC(fit_ln)),
-                 row.names = c("$\\mu$", "$\\gamma$", "$\\sigma$", "AIC"))
-knitr::kable(df, digits = 3, caption = "Modèles ajustés",
-             col.names = c("Weibull", "Log-logistique", "Log-normale"))
-```
-
-En terme d'AIC, le modèle avec l'hypothèse de loi log-normale est meilleur que les autres. C'est également le seul modèle à fournir une estimation positive de $\gamma$ et supérieure à $2$ pour $\sigma$.
-
-Superposons les courbes de survie ajustées avec les trois modèles paramétriques avec les estimateurs de Kaplan-Meier. Nous représentons en pointillé les courbes de survie du groupe "auto" et en trait plein celles du groupe "allo".
-
-```{r echo=FALSE, fig.height=4}
-
-fit_w1 <- flexsurvreg(Surv(time, delta) ~ as.factor(type), data = alloauto, dist = "weibull")
-
-fit_ll1 <- flexsurvreg(Surv(time, delta) ~ as.factor(type), data = alloauto, dist = "llogis")
-
-fit_ln1 <- flexsurvreg(Surv(time, delta) ~ as.factor(type), data = alloauto, dist = "lnorm")
-
-plot(fit_w1, type = "survival", est = TRUE, ci = FALSE, col = "red", lty = c(1,2),
-     xlab = "Temps", ylab = "Probabilités de survie",
-     main = "Courbes de survies estimées dans différents modèles")
-lines(fit_ll1, type = "survival", est = TRUE, ci = FALSE, col = "blue", lty = c(1,2))
-lines(fit_ln1, type = "survival", est = TRUE, ci = FALSE, col = "green", lty = c(1,2))
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "Weibull", "Log logistique", "Log normale"),
-       col = c("black", "red", "blue", "green"), lty = 1, cex = 0.7)
-```
-
-Tout d'abord, nous ne tenons pas compte de la queue de la distribution puisque l'estimation se fait sur assez peu de données pour l'estimateur de Kaplan-Meier. Sur la fin il y a un grand nombre de censure dans le groupe "auto", sur les $11$ individus à risque au temps $t=23.158$, on observe $1$ évènement et $9$ censures. De même, dans le groupe "allo", passé le temps $t=20.066$, plus aucun évènement n'est observé, ce qui indique que les $19$ observations restantes ont été censurées.
-
-Toutes les fonctions de survie estimées sont globalement assez proches. Sauf pour le modèle de Weibull, les courbes de survies entre les groupes sont très similaires pour chaque modèle. Elles sont également assez proches des estimateurs de Kaplan-Meier, mais l'estimateur du modèle de Weibull se distingue un peu plus des autres. Cet ajustement semble moins bon que les autres. Rappelons que le modèle ajusté sous cette loi est celui avec l'$AIC$ le plus élevé.
-
-Dans l'ensemble les deux autres modèles semblent fournir un ajustement correct.
-
-## Résidus de Cox-Snell
-
-Nous allons maintenant examiner les résidus de Cox-Snell $\left( R_i \right)_{i = 1, \dots, n}$.
-
-Rappelons que :
-
--   dans le cas du modèle de Weibull, $R_i = \left( e^{- \left( \hat \mu + \hat \gamma^t Z_i \right)} T_i \right) ^ {1 / \hat \sigma}$
-
-```{r echo=FALSE}
-R_w <- (exp(-(fit_w$coefficients[1] + fit_w$coefficients[2] * alloauto$type)) *
-         alloauto$time)^(1/fit_w$scale)
-```
-
--   dans le cas du modèle log-logistique de paramètres :
-
-$$
-R_i = \ln \left[ 1 + \left( e^{- \left( \hat \mu + \hat \gamma^t Z_i \right)} T_i \right) ^{1/\hat \sigma} \right]
-$$
-
-```{r echo=FALSE}
-R_ll <- log(1 + (
-    exp(-(fit_ll$coefficients[1] + fit_ll$coefficients[2] * alloauto$type)) *
-      alloauto$time) ^ 1/fit_ll$scale)
-```
-
--   dans le cas du modèle log-normale :
-
-$$
-R_i = - \ln \left[ 1 - \Phi \left( \frac{\ln(T_i) - \hat \mu - \hat \gamma^t Z_i}{\hat \sigma} \right) \right]
-$$
-
-où $\Phi$ est la fonction de répartition de la loi normale centrée-réduite $\mathcal N(0, 1)$.
-
-```{r echo=FALSE}
-R_ln <- - log(
-  1 - pnorm(
-    (log(alloauto$time) - fit_ln$coefficients[1] - fit_ln$coefficients[2] * alloauto$type) / fit_ln$scale)
-)
-```
-
-Nous pouvons alors représenter graphiquement les estimateurs de Nelson-Aalen de la fonction de risque cumulé pour chaque groupe de l'échantillon censuré $(R_i, \delta_i)$ et y superposer la droite d'équation $y=x$. Nous représentons en pointillé les estimateurs du groupe "auto" et en trait plein ceux du groupe "allo".
-
-Comme pour l'estimateur de la fonction de survie de Kaplan-Meier, nous ne tenons pas compte des estimations pour les résidus élevés, elles sont dégradées à cause du manque de données et du taux de censure important.
-
-Nous commençons par le modèle de Weibull.
-
-```{r echo=FALSE, fig.height=4}
-plot(survfit(Surv(R_w, delta) ~ as.factor(type), data = alloauto, ctype = 1), fun = "cumhaz",
-     xlab = "Temps", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , ",
-       delta[i], ")")), sub = "Modèle de Weibull", lty = c(1,2)
-     )
-abline(a = 0, b = 1, col = "red")
-legend(x = "bottomright", legend = c("allo", "auto"), lty = c(1,2), cex = 0.7)
-```
-
-L'estimateur dans le groupe auto est un peu plus proche de la première bissectrice que celui du groupe "allo". Dans l'ensemble, l'ajustement d'un modèle de Weibull ne semble pas être le meilleur choix, surtout dans le groupe "allo".
-
-```{r echo=FALSE, fig.height=4}
-plot(survfit(Surv(R_ll, delta) ~ as.factor(type), data = alloauto, ctype = 1), fun = "cumhaz",
-     xlab = "Résidus", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , ",
-       delta[i], ")")) , sub = "Modèle log-logistique", lty = c(1,2)
-     )
-abline(a = 0, b = 1, col = "red")
-legend(x = "bottomright", legend = c("allo", "auto"), lty = c(1,2), cex = 0.7)
-```
-
-Dans le cas du modèle log-logistique, les deux estimateurs sont globalement au-dessus de la première bissectrice, ils surestiment le risque cumulé. Choisir une loi log-logistique ne semble pas fournir un ajustement correct des données.
-
-```{r echo=FALSE, fig.height=4}
-plot(survfit(Surv(R_ln, delta) ~ as.factor(type), data = alloauto, ctype = 1), fun = "cumhaz",
-     xlab = "Résidus", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , ",
-       delta[i], ")")), sub = "Modèle log-normale", lty = c(1,2)
-     )
-abline(a = 0, b = 1, col = "red")
-legend(x = "bottomright", legend = c("allo", "auto"), lty = c(1,2), cex = 0.7)
-```
-
-Enfin, les estimateurs du modèles log-normale sont les plus proches de la droite d'équation $y=x$ pour les deux groupes. L'ajustement dans les deux groupes est correct.
-
-Ces différentes estimations nous amènent à penser que le modèle log-normale est le plus adéquat pour nos données. Rappelons également que ce modèle était celui avec la plus petite valeur d'$AIC$ et ses fonctions de survie étaient proche de l'estimateur de Kaplan-Meier.
-
-## Autres modèles de lois
-
-Nous pouvons faire d'autres hypothèses de loi pour nos modèles de régression. Nous commençons par faire l'hypothèse d'une loi exponentielle.
-
-Nous représentons les fonctions de survies et les estimateurs de Nelson-Aalen de l'échantillon censuré des résidus de Cox-Snell.
-
-```{r echo=FALSE, fig.height=4}
-fit_e <- flexsurvreg(Surv(time, delta) ~ as.factor(type), data = alloauto, dist = "exp")
-
-plot(fit_e, type = "survival", est = TRUE, ci = FALSE, col = "red", lty = c(1,2),
-     xlab = "Temps", ylab = "Probabilités de survie",
-     main = "Courbes de survies estimées dans le modèle exponentiel")
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "Exponentiel"),
-       col = c("black", "red"), lty = 1, cex = 0.7)
-
-R_e <- -log(1 - pexp(alloauto$time * exp(-0.32463 * alloauto$delta), rate = 0.02372))
-
-plot(survfit(Surv(R_e, delta) ~ as.factor(type), data = alloauto, ctype = 1), fun = "cumhaz",
-     xlab = "Résidus", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , ",
-       delta[i], ")")), sub = "Modèle exponentiel", lty = c(1,2)
-     )
-abline(a = 0, b = 1, col = "red")
-legend(x = "bottomright", legend = c("allo", "auto"), lty = c(1,2), cex = 0.7)
-```
-
-Nous voyons que ce modèle ajuste mal les données. Les fonctions de survies estimées dans le modèle ne sont pas proches des estimateurs de Kaplan-Meier et les deux fonctions de risque cumulé sont très au-dessus de la première bissectrice. Nous noterons également que l'$AIC$ de ce modèle vaut `r round(fit_e$AIC,3)`, il est bien plus élevé que ceux des modèles précédents.
-
-Nous pouvons également faire l'hypothèse d'une loi Gamma
-
-```{r echo=FALSE, fig.height=4}
-fit_g <- flexsurvreg(Surv(time, delta) ~ as.factor(type), data = alloauto, dist = "gamma")
-
-plot(fit_g, type = "survival", est = TRUE, ci = FALSE, col = "red", lty = c(1,2),
-     xlab = "Temps", ylab = "Probabilités de survie",
-     main = "Courbes de survies estimées dans le modèle Gamma")
-legend(x = "topright",
-       legend = c("Kaplan-Meier", "Gamma"),
-       col = c("black", "red"), lty = 1, cex = 0.7)
-
-R_g <- -log(1 - pgamma(alloauto$time * exp(0.44153 * alloauto$delta), shape = 0.62686,
-                     rate = 0.01038))
-
-plot(survfit(Surv(R_g, delta) ~ as.factor(type), data = alloauto, ctype = 1), fun = "cumhaz",
-     xlab = "Résidus", ylab = "Risque cumulé", main = expression(paste(
-       "Estimateur de Nelson-Aalen de H de l'échantillon censuré (", R[i], " , ",
-       delta[i], ")")), sub = "Modèle Gamma", lty = c(1,2)
-     )
-abline(a = 0, b = 1, col = "red")
-legend(x = "bottomright", legend = c("allo", "auto"), lty = c(1,2), cex = 0.7)
-```
-
-La fonction de survie du groupe "auto" est proche de l'estimateur de Kaplan-Meier, ce n'est pas vraiment le cas de celle du groupe "allo". D'un autre côté, les fonctions de risque cumulé des deux groupes sont assez proches de la première bissectrice. Ce modèle semble fournir un ajustement correct des données, surtout dans le groupe "auto".
-
-## Conclusion
-
-Nous avons ajusté plusieurs modèles de régression sur notre jeu de données en faisant différentes hypothèses de loi afin de choisir le meilleur modèle. Finalement le modèle log-normale est celui avec l'$AIC$ le plus petit, ses fonctions de survies sont très proches de l'estimateur de Kaplan-Meier et ses estimations des fonctions de risque cumulé de l'échantillon des résidus de Cox-Snell censurés sont les plus proches de la droite d'équation $y=x$. C'est donc ce modèle de régression que nous retiendrons.
+survdiff(dt1 ~ grp + ageGroup4, data = dt, rho = 0)
+``
