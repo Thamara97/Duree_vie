@@ -1,0 +1,351 @@
+---
+title: "Projet Durées de vie"
+author: "AKKOUH Maryam"
+date: "2024-02-20"
+output: html_document
+---
+
+```{r}
+#install.packages("survival")
+library(survival)
+View(diabetic)
+```
+
+Calcul du taux de censure :
+
+```{r}
+# Charger le jeu de données
+data(diabetic, package="survival")
+
+# Calculer le nombre d'observations avec statut = 0 (censure)
+censored_count <- sum(diabetic$status == 0)
+
+# Calculer le nombre total d'observations
+total_count <- nrow(diabetic)
+
+# Calculer le taux de censure
+censorship_rate <- censored_count / total_count
+
+# Afficher le taux de censure
+print(censorship_rate)
+
+```
+
+Taux de censure par type d'opération : 
+
+```{r}
+# Charger le jeu de données
+data(diabetic, package="survival")
+
+# Diviser les données en deux groupes en fonction du type de laser
+xenon_data <- subset(diabetic, laser == "xenon")
+argon_data <- subset(diabetic, laser == "argon")
+
+# Calculer le nombre d'observations censurées pour chaque groupe
+censored_xenon <- sum(xenon_data$status == 0)
+censored_argon <- sum(argon_data$status == 0)
+
+# Calculer le nombre total d'observations pour chaque groupe
+total_xenon <- nrow(xenon_data)
+total_argon <- nrow(argon_data)
+
+# Calculer le taux de censure pour chaque groupe
+censorship_rate_xenon <- censored_xenon / total_xenon
+censorship_rate_argon <- censored_argon / total_argon
+
+# Afficher les taux de censure pour chaque groupe
+print(paste("Taux de censure pour le laser xenon:", censorship_rate_xenon))
+print(paste("Taux de censure pour le laser argon:", censorship_rate_argon))
+
+```
+
+Courbes de survie :
+
+```{r}
+
+# Charger le package survival
+library(survival)
+
+# Charger le jeu de données
+data(diabetic, package = "survival")
+
+# Calculer la courbe de survie en utilisant l'estimateur de Kaplan-Meier
+surv_fit <- survfit(Surv(time, status) ~ 1, data = diabetic)
+
+# Tracer la courbe de survie
+plot(surv_fit, main = "Courbe de survie pour la rétinopathie diabétique", 
+     xlab = "Temps (mois)", ylab = "Probabilité de survie",
+     col = "blue", lwd = 1)
+
+```
+Courbes de survie par type d'opération subie :
+
+```{r}
+# Filtrer les données pour chaque type d'opération
+laser_xenon <- subset(diabetic, laser == "xenon")
+laser_argon <- subset(diabetic, laser == "argon")
+
+# Calculer les courbes de survie pour chaque groupe
+surv_fit_xenon <- survfit(Surv(time, status) ~ 1, data = laser_xenon)
+surv_fit_argon <- survfit(Surv(time, status) ~ 1, data = laser_argon)
+
+# Tracer les courbes de survie
+plot(surv_fit_xenon, col = "magenta", lwd = 2, main = "Courbes de survie par type d'opération",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie")
+lines(surv_fit_argon, col = "black", lwd = 2)
+legend("topright", legend = c("Laser Xenon", "Laser Argon"), col = c("magenta", "black"), lwd = 2)
+
+```
+
+```{r}
+# Effectuer le test du log-rank pour la variable laser
+logrank_test <- survdiff(Surv(time, status) ~ laser, data = diabetic)
+
+# Afficher les résultats
+print(logrank_test)
+```
+
+
+
+Par type de traitement subi : 
+
+```{r}
+# Filtrer les données pour chaque type de traitement
+sans_traitement <- subset(diabetic, trt == 0)
+avec_traitement <- subset(diabetic, trt == 1)
+
+# Calculer les courbes de survie pour chaque groupe
+surv_fit_sans_traitement <- survfit(Surv(time, status) ~ 1, data = sans_traitement)
+surv_fit_avec_traitement <- survfit(Surv(time, status) ~ 1, data = avec_traitement)
+
+# Tracer les courbes de survie
+plot(surv_fit_sans_traitement, col = "black", lwd = 1, main = "Courbes de survie par traitement",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie")
+lines(surv_fit_avec_traitement, col = "magenta", lwd = 1)
+legend("topright", legend = c("Sans traitement", "Avec traitement"), col = c("black", "magenta"), lwd = 2)
+
+```
+
+test du log-rank pour vérifier la différence entre les deux groupes de traitement :
+
+```{r}
+# Test du log-rank pour comparer les groupes avec et sans traitement
+logrank_test <- survdiff(Surv(time, status) ~ trt, data = diabetic)
+
+# Afficher les résultats du test
+print(logrank_test)
+
+```
+
+Selon le groupe de risque :
+
+```{r}
+# Diviser les données en fonction des niveaux de risque
+groupe_6 <- subset(diabetic, risk == "6")
+groupe_8 <- subset(diabetic, risk == "8")
+groupe_9 <- subset(diabetic, risk == "9")
+groupe_10 <- subset(diabetic, risk == "10")
+groupe_11 <- subset(diabetic, risk == "11")
+groupe_12 <- subset(diabetic, risk == "12")
+
+# Calculer les courbes de survie pour chaque groupe
+surv_fit_6 <- survfit(Surv(time, status) ~ 1, data = groupe_6)
+surv_fit_8 <- survfit(Surv(time, status) ~ 1, data = groupe_8)
+surv_fit_9 <- survfit(Surv(time, status) ~ 1, data = groupe_9)
+surv_fit_10 <- survfit(Surv(time, status) ~ 1, data = groupe_10)
+surv_fit_11 <- survfit(Surv(time, status) ~ 1, data = groupe_11)
+surv_fit_12 <- survfit(Surv(time, status) ~ 1, data = groupe_12)
+
+# Tracer les courbes de survie pour chaque groupe
+plot(surv_fit_6, col = "blue", lwd = 1, main = "Courbes de survie par groupe de risque",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie",conf.int = FALSE)
+lines(surv_fit_8, col = "green", lwd = 1,conf.int = FALSE)
+lines(surv_fit_9, col = "purple", lwd = 1,conf.int = FALSE)
+lines(surv_fit_10, col = "orange", lwd = 1,conf.int = FALSE)
+lines(surv_fit_11, col = "yellow", lwd = 1,conf.int = FALSE)
+lines(surv_fit_12, col = "black", lwd = 1,conf.int = FALSE)
+
+# Placer la légende à côté du graphe
+legend("bottomleft", legend = c("Risque 6", "Risque 8", "Risque 9", "Risque 10", "Risque 11", "Risque 12"),
+       col = c("blue", "green", "purple", "orange", "yellow", "black"), lty = 1, cex = 0.8)
+
+```
+Selon le groupe de risque en tenant compte du traitement : 
+
+
+```{r}
+# Diviser les données en fonction des niveaux de risque
+groupe_6_trt0 <- subset(diabetic, risk == "6" & trt == 0)
+groupe_8_trt0 <- subset(diabetic, risk == "8" & trt == 0)
+groupe_9_trt0 <- subset(diabetic, risk == "9" & trt == 0)
+groupe_10_trt0 <- subset(diabetic, risk == "10" & trt == 0)
+groupe_11_trt0 <- subset(diabetic, risk == "11" & trt == 0)
+groupe_12_trt0 <- subset(diabetic, risk == "12" & trt == 0)
+
+# Calculer les courbes de survie pour chaque groupe de risque et trt=0
+surv_fit_6_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_6_trt0)
+surv_fit_8_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_8_trt0)
+surv_fit_9_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_9_trt0)
+surv_fit_10_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_10_trt0)
+surv_fit_11_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_11_trt0)
+surv_fit_12_trt0 <- survfit(Surv(time, status) ~ 1, data = groupe_12_trt0)
+
+# Tracer les courbes de survie pour chaque groupe de risque et trt=0
+plot(surv_fit_6_trt0, col = "blue", lwd = 1, main = "Courbes de survie par groupe de risque (trt=0)",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie", conf.int = FALSE)
+lines(surv_fit_8_trt0, col = "green", lwd = 1, conf.int = FALSE)
+lines(surv_fit_9_trt0, col = "purple", lwd = 1, conf.int = FALSE)
+lines(surv_fit_10_trt0, col = "orange", lwd = 1, conf.int = FALSE)
+lines(surv_fit_11_trt0, col = "yellow", lwd = 1, conf.int = FALSE)
+lines(surv_fit_12_trt0, col = "black", lwd = 1, conf.int = FALSE)
+
+# Placer la légende à côté du graphe
+legend("bottomleft", legend = c("Risque 6", "Risque 8", "Risque 9", "Risque 10", "Risque 11", "Risque 12"),
+       col = c("blue", "green", "purple", "orange", "yellow", "black"), lty = 1, cex = 0.8)
+
+
+# Diviser les données en fonction des niveaux de risque et trt=1
+groupe_6_trt1 <- subset(diabetic, risk == "6" & trt == 1)
+groupe_8_trt1 <- subset(diabetic, risk == "8" & trt == 1)
+groupe_9_trt1 <- subset(diabetic, risk == "9" & trt == 1)
+groupe_10_trt1 <- subset(diabetic, risk == "10" & trt == 1)
+groupe_11_trt1 <- subset(diabetic, risk == "11" & trt == 1)
+groupe_12_trt1 <- subset(diabetic, risk == "12" & trt == 1)
+
+# Calculer les courbes de survie pour chaque groupe de risque et trt=1
+surv_fit_6_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_6_trt1)
+surv_fit_8_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_8_trt1)
+surv_fit_9_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_9_trt1)
+surv_fit_10_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_10_trt1)
+surv_fit_11_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_11_trt1)
+surv_fit_12_trt1 <- survfit(Surv(time, status) ~ 1, data = groupe_12_trt1)
+
+# Tracer les courbes de survie pour chaque groupe de risque et trt=1
+plot(surv_fit_6_trt1, col = "blue", lwd = 1, main = "Courbes de survie par groupe de risque (trt=1)",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie", conf.int = FALSE)
+lines(surv_fit_8_trt1, col = "green", lwd = 1, conf.int = FALSE)
+lines(surv_fit_9_trt1, col = "purple", lwd = 1, conf.int = FALSE)
+lines(surv_fit_10_trt1, col = "orange", lwd = 1, conf.int = FALSE)
+lines(surv_fit_11_trt1, col = "yellow", lwd = 1, conf.int = FALSE)
+lines(surv_fit_12_trt1, col = "black", lwd = 1, conf.int = FALSE)
+
+# Placer la légende à côté du graphe
+legend("bottomleft", legend = c("Risque 6", "Risque 8", "Risque 9", "Risque 10", "Risque 11", "Risque 12"),
+       col = c("blue", "green", "purple", "orange", "yellow", "black"), lty = 1, cex = 0.8)
+
+```
+
+
+```{r}
+
+# Test de log-rank pour l'ensemble des données sans tenir compte du groupe de traitement
+test_logrank_global <- survdiff(Surv(time, status) ~ risk, data = diabetic)
+print(test_logrank_global)
+
+# Test de log-rank pour trt=0
+test_logrank_trt0 <- survdiff(Surv(time, status) ~ risk, data = diabetic[diabetic$trt == 0,])
+print(test_logrank_trt0)
+
+# Test de log-rank pour trt=1
+test_logrank_trt1 <- survdiff(Surv(time, status) ~ risk, data = diabetic[diabetic$trt == 1,])
+print(test_logrank_trt1)
+
+```
+
+
+
+
+
+
+
+
+
+
+Selon l'oeil traité :
+
+```{r}
+# Calculer les courbes de survie selon l'œil traité
+surv_fit_left <- survfit(Surv(time, status) ~ 1, data = subset(diabetic, eye == "left"))
+surv_fit_right <- survfit(Surv(time, status) ~ 1, data = subset(diabetic, eye == "right"))
+
+# Tracer les courbes de survie pour chaque œil
+plot(surv_fit_left, col = "blue", lwd = 1, main = "Courbes de survie selon l'œil traité",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie")
+lines(surv_fit_right, col = "red", lwd = 1)
+
+# Légende
+legend("topright", legend = c("Œil gauche", "Œil droit"),
+       col = c("blue", "red"), lty = 1, cex = 0.8)
+
+```
+test du log-rank :
+
+```{r}
+# Test du log-rank pour comparer les courbes de survie selon l'œil traité
+survdiff(Surv(time, status) ~ eye, data = diabetic)
+
+
+```
+
+
+Selon le groupe d'âge : 
+
+Moins de 18 ans: Cela peut être considéré comme le groupe des mineurs.
+18-30 ans: Ce groupe couvre une tranche d'âge jeune.
+31-45 ans: Une tranche d'âge intermédiaire.
+46-60 ans: Une tranche d'âge plus mature.
+
+
+```{r}
+# Création de la variable groupe_age en fonction des intervalles d'âge
+diabetic$groupe_age <- cut(diabetic$age, 
+                            breaks = c(0, 18, 30, 45, 60, max(diabetic$age)),
+                            labels = c("Moins de 18 ans", "18-30 ans", "31-45 ans", "46-60 ans"),
+                            include.lowest = TRUE)
+
+# Affichage des premières lignes pour vérification
+head(diabetic)
+```
+
+
+
+On affiche ensuite les courbes de survie :
+
+```{r}
+# Charger la bibliothèque survival si ce n'est pas déjà fait
+library(survival)
+
+# Diviser les données en fonction des groupes d'âge
+groupe_mineurs <- subset(diabetic, groupe_age == "Moins de 18 ans")
+groupe_18_30 <- subset(diabetic, groupe_age == "18-30 ans")
+groupe_31_45 <- subset(diabetic, groupe_age == "31-45 ans")
+groupe_46_60 <- subset(diabetic, groupe_age == "46-60 ans")
+
+# Calculer les courbes de survie pour chaque groupe d'âge
+surv_fit_mineurs <- survfit(Surv(time, status) ~ 1, data = groupe_mineurs)
+surv_fit_18_30 <- survfit(Surv(time, status) ~ 1, data = groupe_18_30)
+surv_fit_31_45 <- survfit(Surv(time, status) ~ 1, data = groupe_31_45)
+surv_fit_46_60 <- survfit(Surv(time, status) ~ 1, data = groupe_46_60)
+
+plot(surv_fit_mineurs, col = "blue", lwd = 1, main = "Courbes de survie par groupe d'âge",
+     xlab = "Temps (mois)", ylab = "Probabilité de survie", conf.int = FALSE)
+lines(surv_fit_18_30, col = "green", lwd = 1, conf.int = FALSE)
+lines(surv_fit_31_45, col = "purple", lwd = 1, conf.int = FALSE)
+lines(surv_fit_46_60, col = "orange", lwd = 1, conf.int = FALSE)
+
+# Légende
+legend("topright", legend = c("Moins de 18 ans", "18-30 ans", "31-45 ans", "46-60 ans"),
+       col = c("blue", "green", "purple", "orange"), lty = 1, cex = 0.8)
+```
+
+```{r}
+# Test du log-rank en utilisant la variable groupe_age
+log_rank_test <- survdiff(Surv(time, status) ~ groupe_age, data = diabetic)
+
+# Afficher les résultats du test
+print(log_rank_test)
+
+
+```
+
+
