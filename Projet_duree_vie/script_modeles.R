@@ -1,9 +1,8 @@
 library(survival)
-library(km.ci) # pour les bandes de confiance
-library(survminer) # pour les graphiques
-library(flexsurv) # pour l'ajustement de modèle
-library(lmtest) # pour les test
-library(MASS) # pour la sélection de variable avec AIC
+library(survminer) # graphiques
+library(flexsurv) # ajustement de modèle
+library(lmtest) # test
+library(MASS) # sélection de variable
 
 
 #### Données ####
@@ -29,7 +28,7 @@ waldtest(modW1) # test de wald
 stepAIC(modW1, k = 2) # AIC
 stepAIC(modW1, k = log(nrow(diabetic))) # BIC
 
-# modèle final
+# modèle final (BIC)
 modW2 <- flexsurvreg(dt ~ trt + risk, dist = "weibull",
                         data = diabetic)
 modW2
@@ -47,8 +46,7 @@ resW <- residuals(modW2, type = "coxsnell")
 plot(survfit(Surv(resW, status) ~ 1,
              data = diabetic, ctype = 1),
      fun = "cumhaz", xlab = "Résidus", ylab = "Risque cumulé",
-     main = expression(paste(
-       "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
+     main = "Estimateur de Nelson-Aalen de la fonction de risque cumulé",
      lty = c(1, 2, 2)
 )
 abline(a = 0, b = 1, col = "red")
@@ -78,19 +76,15 @@ modLl2
 plot(modLl2, type = "survival", est = TRUE, ci = TRUE,
      main = "Estimation de la fonction de survie dans le modèle log-logistique",
      xlab = "Temps", ylab = "Probabilité de survie", col = "green")
-lines(modW2, type = "survival", est = TRUE, ci = FALSE, col = "red", lwd = 1)
-legend(x = "bottomleft",legend = c("Modèle de log-logistique",
-                                   "Modèle de Weibull",
-                                   "Kaplan-Meier"),
-       title = "Estimateur", col = c("green", "red", "black"), lty = 1,
+legend(x = "bottomleft",legend = c("Modèle de log-logistique", "Kaplan-Meier"),
+       title = "Estimateur", col = c("green", "black"), lty = 1,
        lwd = c(2, 1, 1), cex = 0.7)
 
 # résidus de Cox-Snell
 resll <- residuals(modLl2, type = "coxsnell")
 plot(survfit(Surv(resll, status) ~ 1, data = diabetic, ctype = 1),
      fun = "cumhaz", xlab = "Résidus", ylab = "Risque cumulé",
-     main = expression(paste(
-       "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
+     main = "Estimateur de Nelson-Aalen de la fonction de risque cumulé",
      lty = c(1,2,2)
 )
 abline(a = 0, b = 1, col = "red")
@@ -109,47 +103,80 @@ waldtest(modLn1) # test de wald
 stepAIC(modLn1, k = 2) # AIC
 stepAIC(modLn1, k = log(nrow(diabetic))) # BIC
 
-# modèle final
+# modèle final (BIC)
 modLn2 <- flexsurvreg(dt ~ trt + risk, dist = "lnorm",
                       data = diabetic)
 modLn2
 
 # comparaison à l'estimateur de Kaplan-Meier
-plot(modLn2, type = "survival", est = TRUE, ci = TRUE,
+plot(modLn2, type = "survival", est = TRUE, ci = FALSE,
      main = "Estimation de la fonction de survie dans le modèle log-normale",
      xlab = "Temps", ylab = "Probabilité", col = "blue")
-legend(x = "bottomleft",legend = c("Moddèle log-normale", "Kaplan-Meier"),
+legend(x = "bottomleft",legend = c("Moddèle log-normale","Kaplan-Meier"),
        title = "Estimateur", col = c("blue", "black"), lty = 1,
-       lwd = c(2, 1), cex = 0.7)
+       lwd = c(2, 1, 1, 1), cex = 0.7)
 
 # résidus de Cox-Snell
 resln <- residuals(modLn2, type = "coxsnell")
-
 plot(survfit(Surv(resln, status) ~ 1, data = diabetic, ctype = 1),
      fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
-     main = expression(paste(
-       "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
-     sub = "Modèle de log-logistique", lty = c(1,2)
+     main = "Estimateur de Nelson-Aalen de la fonction de risque cumulé",
+     lty = c(1,2)
 )
 abline(a = 0, b = 1, col = "red")
 
-# Modèle de gompertz
-modGp <- flexsurvreg(dt ~ trt + risk, dist = "gompertz",
-                      data = diabetic)
-modGp
 
-# comparaison à l'estimateur de Kaplan-Meier
-plot(modLl2, type = "survival", est = TRUE, ci = TRUE,
-     main = "Estimateur de la fonction de survie \n Modèle log-logistique",
-     xlab = "Temps", ylab = "Probabilité", sub = "Modèle log-logistique")
+#### Comparaison des modèles ####
 
-# résidus de Cox-Snell
-resgp <- residuals(modGp, type = "coxsnell")
+# Kaplan-Meier
+plot(modLn2, type = "survival", est = TRUE, ci = TRUE,
+     main = "Estimation de la fonction dans les différents modèles",
+     xlab = "Temps", ylab = "Probabilité", col = "blue")
+lines(modLl2, type = "survival", est = TRUE, ci = T, col = "green")
+lines(modW2, type = "survival", est = TRUE, ci = T)
+legend(x = "bottomleft",legend = c("Moddèle log-normale",
+                                   "Modèle de log-logistique",
+                                   "Modèle de Weibull", "Kaplan-Meier"),
+       title = "Estimateur", col = c("blue", "green", "red", "black"), lty = 1,
+       lwd = c(2, 2, 2, 1), cex = 0.7)
 
-plot(survfit(Surv(resgp, status) ~ 1, data = diabetic, ctype = 1),
-     fun = "cumhaz", xlab = "Temps", ylab = "Risque cumulé",
-     main = expression(paste(
-       "Estimateur de Nelson-Aalen de la fonction de risque cumulé")),
-     sub = "Modèle gompertz", lty = c(1,2)
-)
-abline(a = 0, b = 1, col = "red")
+#### Ajustement du modèle de Cox ####
+data <- diabetic
+data$trt <- relevel(as.factor(data$trt), ref = "1")
+
+modCox <- coxph(dt ~ trt + risk, data = data)
+summary(modCox)
+
+ggforest(modCox, data = data)
+
+#### Vérification de l'hypothèse des risques proportionnels ####
+
+# Résidus de Schöenfeld
+residus <- cox.zph(modCox)
+ggcoxzph(residus)
+
+# Graphique "LML" pour trt
+indiv_new <- data.frame(trt = c("1", "0"), risk = c(9, 9))
+survie_pred <- survfit(modCox, newdata = indiv_new, conf.type = "none")
+plot(survie_pred, fun = "cloglog", col = c("black", "red"),
+     xlab = "Temps", ylab = "ln(-ln(S(t|Z)))",
+     main = "Courbes \"LML\" pour les modalités de la covariable trt
+     quand risk = 9")
+
+#### Prédiction de la fonction de survie ####
+indiv_new <- data.frame(trt = rep(c("0", "1"), each = 6),
+                        risk = rep(6:12, times = 2)[-c(2, 9)])
+surv.new <- survfit(modCox, newdata = indiv_new)
+leng <- paste("trt =", rep(c("0", "1"), each = 6), "risk =", c(6:12)[-2])
+med <- c(63.3, 48.9, 42.4, 34.4, 26.2)
+
+plot(surv.new, col = 1:14, lty = rep(c(1,2), each = 6),
+     xlab = "Temps", ylab = "Probabilité de survie",
+     main = "Prédiction de la fonction de survie pour plusieurs individus")
+legend(x = "bottomleft", legend = leng, col = 1:12, lty = rep(c(1,2), each = 6),
+       lwd = 1, cex = 0.7)
+for (i in 2:6) {
+  lines(x = c(-2.5, med[i-1]), y = c(0.5, 0.5), lty = 3, col = i, lwd = 2)
+  lines(x = c(med[i-1], med[i-1]), y = c(-0.5, 0.5), lty = 3, col = i, lwd = 2)
+}
+axis(side = 2, at = seq(0, 1, by = 0.1))
